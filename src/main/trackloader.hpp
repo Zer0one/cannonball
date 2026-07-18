@@ -94,7 +94,6 @@ public:
     ~TrackLoader();
 
     void init(bool jap);
-    bool set_layout_track(const char* filename);
     void init_original_tracks(bool jap);
     void init_layout_tracks(bool jap);
     void init_track(const uint32_t);

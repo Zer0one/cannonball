@@ -289,16 +289,13 @@ void OInitEngine::update_engine()
         ohud.blit_text1(HUD_KPH1);
         ohud.blit_text1(HUD_KPH2);
 
-        // Blit High/Low Gear
-        if ((config.controls.gear == config.controls.GEAR_BUTTON ||
-            config.controls.gear == config.controls.GEAR_SEPARATE)
-            && !config.smartypi.enabled)
-        {
-            if (oinputs.gear)
-                ohud.blit_text_new(9, 26, "H", OHud::GREEN);
-            else
-                ohud.blit_text_new(9, 26, "L", OHud::GREY);
-        }
+        // Blit High/Low Gear.
+        // Libretro displays the current transmission state in every gear mode,
+        // including automatic transmission.
+        if (oinputs.gear)
+            ohud.blit_text_new(9, 26, "H", OHud::GREEN);
+        else
+            ohud.blit_text_new(9, 26, "L", OHud::GREY);
 
         if (config.engine.layout_debug)
             ohud.draw_debug_info(oroad.road_pos, oroad.height_lookup_wrk, trackloader.read_sprite_pattern_index());

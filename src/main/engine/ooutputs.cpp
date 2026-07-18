@@ -28,7 +28,7 @@
 #include "engine/ohud.hpp"
 #include "engine/oinputs.hpp"
 #include "engine/ooutputs.hpp"
-#include "directx/ffeedback.hpp"
+#include "libretro/ffeedback.hpp"
 
 OOutputs::OOutputs(void)
 {
@@ -96,21 +96,6 @@ void OOutputs::tick(int16_t input_motor)
             motor_output(hw_motor_control); // Force Feedback Handling
             break;
 
-        // SMARTYPI: Real Cabinet
-        case MODE_CABINET:
-            if (config.smartypi.cabinet == Config::CABINET_MOVING)
-            {
-                do_motors(mode, input_motor);
-            }
-            else
-            {
-                if (config.smartypi.cabinet == Config::CABINET_UPRIGHT)
-                    do_vibrate_upright();
-                else if (config.smartypi.cabinet == Config::CABINET_MINI)
-                    do_vibrate_mini();
-            }
-            break;
-
         // GamePad: Basic Rumble
         case MODE_RUMBLE:
             do_vibrate_upright();
@@ -120,21 +105,7 @@ void OOutputs::tick(int16_t input_motor)
 
 void OOutputs::writeDigitalToConsole()
 {
-    if (config.smartypi.enabled && config.smartypi.ouputs)
-    {
-        if ((dig_out & D_BRAKE_LAMP) != (dig_out_old & D_BRAKE_LAMP))
-            std::cout << "brake_lamp = " << is_set(D_BRAKE_LAMP) << std::endl;
-        if ((dig_out & D_START_LAMP) != (dig_out_old & D_START_LAMP))
-            std::cout << "start_lamp = " << is_set(D_START_LAMP) << std::endl;
-        if ((dig_out & D_MOTOR) != (dig_out_old & D_MOTOR))
-            std::cout << "wheel_motor = " << is_set(D_MOTOR) << std::endl;
-
-        if (hw_motor_control != hw_motor_control_old)
-            std::cout << "bank_motor_speed = " << (int) hw_motor_control << std::endl;
-
-        dig_out_old = dig_out;
-        hw_motor_control_old = hw_motor_control;
-    }
+    // Not used by the Libretro core.
 }
 
 // ------------------------------------------------------------------------------------------------

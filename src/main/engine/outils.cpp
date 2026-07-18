@@ -11,6 +11,10 @@
 #include "engine/outils.hpp"
 #include "engine/ostats.hpp"
 
+#ifdef __PS3__
+#define rand std::rand
+#endif
+
 outils::outils(void)
 {
 

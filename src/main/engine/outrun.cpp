@@ -7,6 +7,11 @@
     See license.txt for more details.
 ***************************************************************************/
 
+#ifdef __LIBRETRO__
+#include "lr_setup.hpp"
+#else
+#include "setup.hpp"
+#endif
 #include "main.hpp"
 #include "trackloader.hpp"
 #include "../utils.hpp"
@@ -73,19 +78,10 @@ void Outrun::init()
 
     tick_counter = 0;
 
-    if (config.smartypi.enabled)
-    {
-        outputs->set_mode(OOutputs::MODE_CABINET);
-        if (config.smartypi.cabinet == Config::CABINET_MOVING)
-        {
-            init_motor_calibration();
-            return;
-        }
-    }
-    else if (config.controls.haptic)
+    if (config.controls.haptic)
         outputs->set_mode(OOutputs::MODE_FFEEDBACK);
-    else if (config.controls.rumble)
-        outputs->set_mode(OOutputs::MODE_RUMBLE);
+    else
+        outputs->set_mode(OOutputs::MODE_DISABLED);
 
     boot();
 }
@@ -96,7 +92,10 @@ void Outrun::boot()
     // Initialize default hi-score entries
     ohiscore.init_def_scores();
     // Load saved hi-score entries
-    config.load_scores(cannonball_mode == Outrun::MODE_ORIGINAL);        
+    config.load_scores(
+        cannonball_mode == Outrun::MODE_ORIGINAL
+            ? FILENAME_SCORES
+            : FILENAME_CONT);        
     ostats.init(cannonball_mode == MODE_TTRIAL);
     init_jump_table();
     oinitengine.init(cannonball_mode == MODE_TTRIAL ? ttrial.level : 0);
@@ -273,30 +272,9 @@ void Outrun::jump_table()
 
     osprites.sprite_copy();
 
-    // Motor Code
-    if (tick_frame)
-    {
-        if (game_state == GS_CALIBRATE_MOTOR)
-        {
-            uint8_t limit = (input.motor_limits[Input::SW_LEFT]   ? 0 : BIT_5) |
-                            (input.motor_limits[Input::SW_CENTRE] ? 0 : BIT_4) |
-                            (input.motor_limits[Input::SW_RIGHT]  ? 0 : BIT_3);
-            if (outputs->calibrate_motor(input.a_motor, limit))
-            {
-                video.enabled     = false;
-                video.clear_text_ram();
-                oroad.horizon_set = 0;
-                boot();
-            }
-
-            outputs->tick(input.a_motor);
-        }
-        else
-        {
-            int16_t motor = (config.smartypi.enabled && config.smartypi.cabinet == Config::CABINET_MOVING) ? input.a_motor : oinputs.input_steering;
-            outputs->tick(motor);
-        }
-    }
+    // Libretro force feedback uses the current steering position.
+    if (tick_frame && config.controls.haptic)
+        outputs->tick(oinputs.input_steering);
 }
 
 // Source: 0xB15E
@@ -593,7 +571,7 @@ void Outrun::main_switch()
     // --------------------------------------------------------------------------------------------
     // Debugging Only
     // --------------------------------------------------------------------------------------------
-    if (DEBUG_LEVEL)
+#ifndef NDEBUG
     {
         if (oinitengine.rd_split_state != 0)
         {
@@ -622,6 +600,7 @@ void Outrun::main_switch()
             oinitengine.car_x_pos = oroad.car_x_bak;
         } 
     }
+#endif
 }
 
 // Setup Jump Table. Move from ROM to RAM.
@@ -715,7 +694,7 @@ bool Outrun::decrement_timers()
 }
 
 // -------------------------------------------------------------------------------
-// SMARTYPI: Motor Calibration
+// Motor calibration
 // -------------------------------------------------------------------------------
 
 void Outrun::init_motor_calibration()

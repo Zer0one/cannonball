@@ -1,5 +1,5 @@
 #pragma once
-#include "stdint.hpp"
+#include <stdint.h>
 
 /***************************************************************************
 	Sprite Palettes.

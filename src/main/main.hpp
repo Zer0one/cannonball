@@ -1,20 +1,22 @@
 #pragma once
 
 #include "globals.hpp"
-#include "sdl2/audio.hpp"
+
+#ifdef COMPILE_SOUND_CODE
+#include "libretro/audio.hpp"
+#endif
 
 namespace cannonball
 {
+#ifdef COMPILE_SOUND_CODE
     extern Audio audio;
+#endif
 
     // Frame counter
 	extern int frame;
 
     // Tick Logic. Used when running at non-standard > 30 fps
     extern bool tick_frame;
-
-    // Millisecond Time Per Frame
-    extern double frame_ms;
 
     // FPS Counter
     extern int fps_counter;
@@ -32,5 +34,3 @@ namespace cannonball
         STATE_QUIT
     };
 }
-
-int main(int argc, char* argv[]);

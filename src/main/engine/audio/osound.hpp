@@ -1,6 +1,6 @@
 #pragma once
 
-#include "stdint.hpp"
+#include <stdint.h>
 #include "globals.hpp"
 #include "roms.hpp"
 
@@ -31,7 +31,7 @@ namespace pcm_sample
         VOICE3  = 0xDE, // 0xDE - Voice 3, Get Ready
         VOICE4  = 0xDF, // 0xDF - Voice 4, You're doing great (unused, plays at wrong pitch)
         WAVE    = 0xE0, // 0xE0 - Wave
-        CRASH4  = 0xE1, // 0xE1 - Crash 4
+        CRASH4  = 0xE1  // 0xE1 - Crash 4
     };
 };
 

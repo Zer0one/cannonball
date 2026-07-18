@@ -7,7 +7,7 @@
     See license.txt for more details.
 ***************************************************************************/
 
-#include "stdint.hpp"
+#include <stdint.h>
 #include "engine/osprites.hpp"
 #include "engine/outils.hpp"
 #include "engine/ologo.hpp"

@@ -6,7 +6,7 @@
     See license.txt for more details.
 ***************************************************************************/
 
-#include "sdl2/input.hpp"
+#include "libretro/input.hpp"
 
 #include "frontend/ttrial.hpp"
 

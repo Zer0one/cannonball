@@ -265,3 +265,13 @@ pip-log.txt
 .DS_Store
 old_version
 
+
+#############
+## libretro
+#############
+
+*.o
+*.a
+*.so
+*.dll
+*.dylib

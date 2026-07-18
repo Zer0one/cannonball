@@ -48,6 +48,7 @@
          0 = 30    FPS. Optimized Mode       (Slow computers)
          1 = 30/60 FPS. Original Game Mode.  (The original experience)
          2 = 60    FPS. Smooth Mode.         (Full 60fps)
+         3 = 120   FPS. Ultra Smooth Mode.   (Full 120fps)
     -->
     <fps>2</fps>
     

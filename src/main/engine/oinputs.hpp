@@ -10,7 +10,8 @@
 
 #pragma once
 
-#include "sdl2/input.hpp"
+#include "libretro/input.hpp"
+
 #include "outrun.hpp"
 
 class OInputs
@@ -67,9 +68,6 @@ private:
 
     static const int DELAY_RESET = 40;
     int delay1, delay2, delay3;
-
-    // Coin Inputs (Only used by CannonBoard)
-    bool coin1, coin2;
 
     // ------------------------------------------------------------------------
     // Variables from original code

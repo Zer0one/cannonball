@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "stdint.hpp"
+#include <stdint.h>
 
 class TTrial
 {
@@ -22,8 +22,8 @@ public:
     enum
     {
         BACK_TO_MENU = -1,
-        CONTINUE = 0,
-        INIT_GAME = 1,
+        CONTINUE     = 0,
+        INIT_GAME    = 1
     };
 
     uint8_t state;
@@ -33,7 +33,7 @@ public:
     {
         INIT_COURSEMAP,
         TICK_COURSEMAP,
-        TICK_GAME_ENGINE,
+        TICK_GAME_ENGINE
     };
 
     TTrial(uint16_t* best_times);

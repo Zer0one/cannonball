@@ -7,7 +7,7 @@
 
 #include <iostream>
 #include <cstring>
-#include "stdint.hpp"
+#include <stdint.h>
 #include "roms.hpp"
 
 Roms roms;

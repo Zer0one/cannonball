@@ -1,6 +1,6 @@
 #pragma once
 
-#include "stdint.hpp"
+#include <stdint.h>
 
 // ------------------------------------------------------------------------------------------------
 // Compiler Settings
@@ -8,15 +8,6 @@
 
 // Comment out to disable SDL specific sound code
 #define COMPILE_SOUND_CODE 1
-
-// ------------------------------------------------------------------------------------------------
-// Debug Settings
-// ------------------------------------------------------------------------------------------------
-
-const bool DEBUG_LEVEL = false;
-
-// Force AI to play the levels
-const bool FORCE_AI = false;
 
 // ------------------------------------------------------------------------------------------------
 // General useful stuff

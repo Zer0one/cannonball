@@ -132,7 +132,6 @@ void OLevelObjs::setup_sprites(uint32_t z)
             return;
         }
     }
-    //std::cout << "Need another entry" << std::endl;
 }
 
 // Setup Sprite from ROM format for use in game
@@ -372,10 +371,6 @@ void OLevelObjs::do_sprite_routine()
                 case 14:
                     do_thickness_sprite(sprite, outrun.adr.sprite_sand);
                     break;
-
-                /*default:
-                    std::cout << "do_sprite_routine() " << int16_t(sprite->function_holder) << std::endl;
-                    break;*/
             }
         }
     }

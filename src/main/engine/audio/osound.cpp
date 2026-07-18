@@ -17,6 +17,10 @@ TODO:
 #include <cstring> // For memset on GCC
 #include "engine/audio/osound.hpp"
 
+#ifdef __PS3__
+#define memcpy std::memcpy
+#endif
+
 // Use YM2151 Timing
 #define TIMER_CODE 1
 

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "stdint.hpp"
+#include <stdint.h>
 
 struct CoinChute
 {
@@ -30,7 +30,6 @@ class OOutputs
 {
 public:  
     const static int MODE_DISABLED = 0; // Disabled
-    const static int MODE_CABINET = 1; // SmartyPi Interface / Original Cabinet
     const static int MODE_FFEEDBACK = 2; // Force Feedback for Wheels
     const static int MODE_RUMBLE = 3; // Simple rumble for controllers
 

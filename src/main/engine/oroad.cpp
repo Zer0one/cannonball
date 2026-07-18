@@ -18,7 +18,7 @@
     See license.txt for more details.
 ***************************************************************************/
 
-#include "stdint.hpp"
+#include <stdint.h>
 #include "globals.hpp"
 #include "roms.hpp"
 #include "trackloader.hpp"

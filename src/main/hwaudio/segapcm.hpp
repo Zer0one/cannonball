@@ -12,7 +12,7 @@
 
 #pragma once
 
-#include "stdint.hpp"
+#include <stdint.h>
 #include "romloader.hpp"
 #include "hwaudio/soundchip.hpp"
 

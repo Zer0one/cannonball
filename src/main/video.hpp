@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include "stdint.hpp"
+#include <stdint.h>
 #include "globals.hpp"
 #include "roms.hpp"
 #include "hwvideo/hwtiles.hpp"
@@ -77,8 +77,14 @@ public:
     uint32_t read_pal32(uint32_t*);
 
 private:
+#ifdef __LIBRETRO__
+    // Palette lookup used by the Libretro RGB565 output.
+    uint32_t rgb[S16_PALETTE_ENTRIES * 3];
+    uint32_t shadow_multi;
+#else
     // SDL Renderer
     RenderBase* renderer;
+#endif
     
 	uint8_t palette[S16_PALETTE_ENTRIES * 2]; // 2 Bytes Per Palette Entry
     void refresh_palette(uint32_t);

@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "stdint.hpp"
+#include <stdint.h>
 #include "roms.hpp"
 #include "globals.hpp"
 
@@ -49,7 +49,7 @@ enum
 	GS_INIT_BEST2 = 19,			// Load Best Outrunners
 	GS_BEST2 = 20,			    // Best Outrunners
 	GS_REINIT = 21,				// Reinitalize Game (after outrunners screen)
-    GS_CALIBRATE_MOTOR = 100,   // Calibrate Motors
+    GS_CALIBRATE_MOTOR = 100   // Calibrate Motors
 };
 
 struct time_trial_t

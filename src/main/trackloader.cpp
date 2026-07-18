@@ -12,11 +12,14 @@
     See license.txt for more details.
 ***************************************************************************/
 
-#include <iostream>
+#include <libretro.h>
+
 #include "trackloader.hpp"
 #include "roms.hpp"
 #include "engine/outrun.hpp"
 #include "engine/oaddresses.hpp"
+
+extern retro_log_printf_t                 log_cb;
 
 // ------------------------------------------------------------------------------------------------
 // Stage Mapping Data: This is the master table that controls the order of the stages.
@@ -77,21 +80,6 @@ void TrackLoader::init(bool jap)
         init_original_tracks(jap);
     else
         init_layout_tracks(jap);
-}
-
-bool TrackLoader::set_layout_track(const char* filename)
-{
-    if (layout == NULL)
-        delete layout;
-
-    layout = new RomLoader();
-    
-    if (layout->load_binary(filename))
-        return false;
-
-    mode = MODE_LAYOUT;
-
-    return true;
 }
 
 void TrackLoader::init_original_tracks(bool jap)
@@ -167,7 +155,7 @@ void TrackLoader::init_layout_tracks(bool jap)
     // --------------------------------------------------------------------------------------------
     if (layout->read32(LayOut::HEADER) != LayOut::EXPECTED_VERSION)
     {
-        std::cout << "Incompatible LayOut Version Detected. Try upgrading CannonBall to the latest version" << std::endl;
+        log_cb(RETRO_LOG_WARN, "Incompatible LayOut Version Detected. Try upgrading CannonBall to the latest version\n");
         init_original_tracks(jap);
         return;
     }

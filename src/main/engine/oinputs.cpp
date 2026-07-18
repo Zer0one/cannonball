@@ -8,8 +8,6 @@
     See license.txt for more details.
 ***************************************************************************/
 
-#include <iostream>
-
 #include "engine/ocrash.hpp"
 #include "engine/oinputs.hpp"
 #include "engine/ostats.hpp"
@@ -44,8 +42,6 @@ void OInputs::init()
     delay1      = 0;
     delay2      = 0;
     delay3      = 0;
-    coin1       = false;
-    coin2       = false;
 }
 
 void OInputs::tick()
@@ -64,8 +60,8 @@ void OInputs::tick()
         // Analog Pedals
         if (input.analog == 1)
         {
-            input_acc      = input.a_accel;
-            input_brake    = input.a_brake;
+            input_acc   = input.a_accel;
+            input_brake = input.a_brake;
         }
         // Digital Pedals
         else
@@ -162,7 +158,11 @@ void OInputs::do_gear()
     {
         // Manual: Cabinet Shifter
         if (config.controls.gear == config.controls.GEAR_PRESS)
+#ifdef __LIBRETRO__
+            gear = !(input.is_pressed(Input::GEAR1) || input.is_pressed(Input::GEAR2));
+#else
             gear = !input.is_pressed(Input::GEAR1);
+#endif
 
         // Manual: Two Separate Buttons for gears
         else if (config.controls.gear == config.controls.GEAR_SEPARATE)
@@ -176,7 +176,11 @@ void OInputs::do_gear()
         // Manual: Keyboard/Digital Button
         else
         {
+#ifdef __LIBRETRO__
+            if (input.has_pressed(Input::GEAR1) || input.has_pressed(Input::GEAR2))
+#else
             if (input.has_pressed(Input::GEAR1))
+#endif
                 gear = !gear;
         }
     }
@@ -258,26 +262,6 @@ uint8_t OInputs::do_credits()
             osoundint.queue_sound(sound::COIN_IN);
         }
         return 3;
-    }
-    else if (coin1)
-    {
-        coin1 = false;
-        if (!config.engine.freeplay && ostats.credits < 9)
-        {
-            ostats.credits++;
-            osoundint.queue_sound(sound::COIN_IN);
-        }
-        return 1;
-    }
-    else if (coin2)
-    {
-        coin2 = false;
-        if (!config.engine.freeplay && ostats.credits < 9)
-        {
-            ostats.credits++;
-            osoundint.queue_sound(sound::COIN_IN);
-        }
-        return 2;
     }
     return 0;
 }

@@ -1,6 +1,6 @@
 /***************************************************************************
-    Binary File Loader. 
-    
+    Binary File Loader.
+
     Handles loading an individual binary file to memory.
     Supports reading bytes, words and longs from this area of memory.
 
@@ -8,240 +8,373 @@
     See license.txt for more details.
 ***************************************************************************/
 
-#include <iostream>
-#include <fstream>
-#include <cstddef>       // for std::size_t
-#include <boost/crc.hpp> // CRC Checking via Boost library.
+#include <cstddef>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
-#include "stdint.hpp"
+#include <encodings/crc32.h>
+#include <libretro.h>
+#include <retro_dirent.h>
+#include <streams/file_stream.h>
+
 #include "romloader.hpp"
-#include "frontend/config.hpp"
 
-// In order to get a cross-platform directory listing I'm using a Visual Studio
-// version of Linux's Dirent from here: https://github.com/tronkko/dirent
-//
-// This appears to be the most lightweight solution available without resorting 
-// to enormous boost libraries or switching to C++17.
-#ifdef _MSC_VER
-#include "windirent.h"
-#else
-#include <dirent.h>
-#endif
+extern retro_log_printf_t log_cb;
+extern char rom_path[1024];
 
-// Unordered Map to store contents of directory by CRC 32 value. Similar to Hashmap.
-static std::unordered_map<int, std::string> map;
-static bool map_created;
+static std::unordered_map<uint32_t, std::string> crc_map;
+static bool map_created = false;
+static std::string mapped_path;
 
+static std::string join_path(const std::string& directory,
+                             const std::string& filename)
+{
+    if (directory.empty())
+        return filename;
+
+    const char last = directory[directory.size() - 1];
+    if (last == '/' || last == '\\')
+        return directory + filename;
+
+    return directory + "/" + filename;
+}
+
+static bool read_exact(RFILE* file, void* data, size_t size)
+{
+    size_t total = 0;
+    uint8_t* output = static_cast<uint8_t*>(data);
+
+    while (total < size)
+    {
+        const int64_t count = filestream_read(
+            file,
+            output + total,
+            static_cast<int64_t>(size - total));
+
+        if (count <= 0)
+            return false;
+
+        total += static_cast<size_t>(count);
+    }
+
+    return true;
+}
+
+static bool calculate_crc32(const std::string& path, uint32_t& checksum)
+{
+    RFILE* file = filestream_open(
+        path.c_str(),
+        RETRO_VFS_FILE_ACCESS_READ,
+        RETRO_VFS_FILE_ACCESS_HINT_NONE);
+
+    if (!file)
+        return false;
+
+    uint32_t crc = 0;
+    uint8_t buffer[64 * 1024];
+
+    for (;;)
+    {
+        const int64_t count = filestream_read(
+            file,
+            buffer,
+            static_cast<int64_t>(sizeof(buffer)));
+
+        if (count < 0)
+        {
+            filestream_close(file);
+            return false;
+        }
+
+        if (count == 0)
+            break;
+
+        crc = encoding_crc32(crc, buffer, static_cast<size_t>(count));
+    }
+
+    filestream_close(file);
+    checksum = crc;
+    return true;
+}
 
 RomLoader::RomLoader()
+    : rom(NULL), length(0), loaded(false)
 {
-    rom = NULL;
-    map_created = false;
-    loaded = false;
+    load = &RomLoader::load_auto;
 }
 
 RomLoader::~RomLoader()
 {
-    if (rom != NULL)
-        delete[] rom;
+    unload();
 }
 
-void RomLoader::init(const uint32_t length)
+void RomLoader::init(const uint32_t new_length)
 {
-    // Setup pointer to function we want to use (either load_crc32 or load_rom)
-    load = config.data.crc32 ? &RomLoader::load_crc32 : &RomLoader::load_rom;
+    unload();
 
-    this->length = length;
+    length = new_length;
     rom = new uint8_t[length];
+    loaded = false;
+    load = &RomLoader::load_auto;
 }
 
 void RomLoader::unload(void)
 {
     delete[] rom;
     rom = NULL;
+    length = 0;
+    loaded = false;
 }
 
-// ------------------------------------------------------------------------------------------------
-// Filename based ROM loader
-// Advantage: Simpler. Does not require <dirent.h>
-// ------------------------------------------------------------------------------------------------
-
-int RomLoader::load_rom(const char* filename, const int offset, const int length, const int expected_crc, const uint8_t interleave, const bool verbose)
+int RomLoader::load_auto(const char* filename,
+                         const int offset,
+                         const int file_length,
+                         const uint32_t expected_crc,
+                         const uint8_t interleave,
+                         const bool verbose)
 {
-    std::string path = config.data.rom_path;
-    path += std::string(filename);
-
-    // Open rom file
-    std::ifstream src(path.c_str(), std::ios::in | std::ios::binary);
-    if (!src)
+    // Prefer content identification, matching the modern upstream loader.
+    // The canonical filename remains a compatibility fallback for frontends
+    // where directory enumeration is unavailable or for legacy ROM sets.
+    if (load_crc32(filename, offset, file_length, expected_crc,
+                   interleave, false) == 0)
     {
-        if (verbose) std::cout << "cannot open rom: " << path << std::endl;
-        loaded = false;
-        return 1; // fail
+        return 0;
     }
 
-    // Read file
-    char* buffer = new char[length];
-    src.read(buffer, length);
-
-    // Check CRC on file
-    boost::crc_32_type result;
-    result.process_bytes(buffer, (size_t) src.gcount());
-
-    if (expected_crc != result.checksum())
+    if (load_rom(filename, offset, file_length, expected_crc,
+                 interleave, verbose) == 0)
     {
-        if (verbose) 
-        std::cout << std::hex << 
-            filename << " has incorrect checksum.\nExpected: " << expected_crc << " Found: " << result.checksum() << std::endl;
+        if (verbose && log_cb)
+            log_cb(RETRO_LOG_WARN,
+                   "Loaded ROM by canonical filename fallback: %s\n",
+                   filename);
 
+        return 0;
+    }
+
+    if (verbose && log_cb)
+        log_cb(RETRO_LOG_ERROR,
+               "Unable to locate ROM by CRC32 or canonical name: %s "
+               "(CRC32: 0x%08x)\n",
+               filename,
+               static_cast<unsigned>(expected_crc));
+
+    loaded = false;
+    return 1;
+}
+
+int RomLoader::load_rom(const char* filename,
+                        const int offset,
+                        const int file_length,
+                        const uint32_t expected_crc,
+                        const uint8_t interleave,
+                        const bool verbose)
+{
+    const std::string path = join_path(rom_path, filename);
+
+    RFILE* source = filestream_open(
+        path.c_str(),
+        RETRO_VFS_FILE_ACCESS_READ,
+        RETRO_VFS_FILE_ACCESS_HINT_NONE);
+
+    if (!source)
+    {
+        loaded = false;
         return 1;
     }
 
-    // Interleave file as necessary
-    for (int i = 0; i < length; i++)
+    std::vector<uint8_t> buffer(static_cast<size_t>(file_length));
+    const bool read_ok = read_exact(source, &buffer[0], buffer.size());
+    filestream_close(source);
+
+    if (!read_ok)
     {
-        rom[(i * interleave) + offset] = buffer[i];
+        if (verbose && log_cb)
+            log_cb(RETRO_LOG_ERROR,
+                   "ROM has an unexpected size: %s\n",
+                   path.c_str());
+
+        loaded = false;
+        return 1;
     }
 
-    // Clean Up
-    delete[] buffer;
-    src.close();
-    loaded = true;
-    return 0; // success
-}
+    const uint32_t checksum = encoding_crc32(0, &buffer[0], buffer.size());
 
-// --------------------------------------------------------------------------------------------
-// Create Unordered Map of files in ROM directory by CRC32 value
-// This should be faster than brute force searching every file in the directory every time.
-// --------------------------------------------------------------------------------------------
+    // Match the existing Libretro core: report checksum mismatches, but keep
+    // loading the named ROM instead of rejecting a set that previously worked.
+    if (expected_crc != checksum && verbose && log_cb)
+    {
+        log_cb(RETRO_LOG_WARN,
+               "%s has incorrect checksum. Expected: 0x%08x, Found: 0x%08x\n",
+               filename,
+               static_cast<unsigned>(expected_crc),
+               static_cast<unsigned>(checksum));
+    }
+
+    for (int i = 0; i < file_length; i++)
+        rom[(i * interleave) + offset] = buffer[static_cast<size_t>(i)];
+
+    loaded = true;
+    return 0;
+}
 
 int RomLoader::create_map()
 {
+    const std::string path = rom_path;
+
+    crc_map.clear();
+    mapped_path = path;
+
+    // Mark the map as initialized even if directory enumeration fails, so a
+    // frontend without directory VFS support does not trigger a full rescan
+    // for every ROM before falling back to canonical filenames.
     map_created = true;
 
-    std::string path = config.data.rom_path;
-    DIR* dir;
-    struct dirent* ent;
-
-    if ((dir = opendir(path.c_str())) == NULL)
+    RDIR* directory = retro_opendir(path.c_str());
+    if (!directory)
     {
-        std::cout << "Warning: Could not open ROM directory - " << path << std::endl;
-        return 1; // Failure (Could not open directory)
+        if (log_cb)
+            log_cb(RETRO_LOG_WARN,
+                   "Could not open ROM directory for CRC32 fallback: %s\n",
+                   path.c_str());
+
+        return 1;
     }
 
-    // Iterate all files in directory
-    while ((ent = readdir(dir)) != NULL)
+    while (retro_readdir(directory))
     {
-        std::string file = path + ent->d_name;
-        std::ifstream src(file, std::ios::in | std::ios::binary);
+        const char* name = retro_dirent_get_name(directory);
 
-        if (!src) continue;
+        if (!name || !*name ||
+            (name[0] == '.' &&
+             (name[1] == '\0' ||
+              (name[1] == '.' && name[2] == '\0'))) ||
+            retro_dirent_is_dir(directory, NULL))
+        {
+            continue;
+        }
 
-        // Read file
-        char* buffer = new char[length];
-        src.read(buffer, length);
+        const std::string file = join_path(path, name);
+        uint32_t checksum = 0;
 
-        // Check CRC on file
-        boost::crc_32_type result;
-        result.process_bytes(buffer, (size_t)src.gcount());
-
-        // Insert file into MAP between CRC and filename
-        map.insert({ result.checksum(), file });
-        delete[] buffer;
-        src.close();
+        if (calculate_crc32(file, checksum))
+            crc_map.insert(std::make_pair(checksum, file));
     }
 
-    if (map.empty())
-        std::cout << "Warning: Could not create CRC32 Map. Did you copy the ROM files into the directory? " << std::endl;
+    retro_closedir(directory);
 
-    closedir(dir);
-    return 0; //success
+    if (crc_map.empty())
+        return 1;
+
+    return 0;
 }
 
-
-// ------------------------------------------------------------------------------------------------
-// Search and load ROM by CRC32 value as opposed to filename.
-// Advantage: More resilient to renamed romsets.
-// ------------------------------------------------------------------------------------------------
-
-int RomLoader::load_crc32(const char* debug, const int offset, const int length, const int expected_crc, const uint8_t interleave, const bool verbose)
+int RomLoader::load_crc32(const char* debug,
+                          const int offset,
+                          const int file_length,
+                          const uint32_t expected_crc,
+                          const uint8_t interleave,
+                          const bool verbose)
 {
-    if (!map_created)
-        create_map();
-
-    if (map.empty())
-        return 1;
-
-    auto search = map.find(expected_crc);
-
-    // Cannot find file by CRC value in map
-    if (search == map.end())
+    if ((!map_created || mapped_path != rom_path) && create_map() != 0)
     {
-        if (verbose) std::cout << "Unable to locate rom in path: " << config.data.rom_path << " possible name: " << debug << " crc32: 0x" << std::hex << expected_crc << std::endl;
         loaded = false;
         return 1;
     }
 
-    // Correct ROM found
-    std::string file = search->second;
+    const std::unordered_map<uint32_t, std::string>::const_iterator match =
+        crc_map.find(expected_crc);
 
-    std::ifstream src(file, std::ios::in | std::ios::binary);
-    if (!src)
+    if (match == crc_map.end())
     {
-        if (verbose) std::cout << "cannot open rom: " << file << std::endl;
+        if (verbose && log_cb)
+            log_cb(RETRO_LOG_ERROR,
+                   "Unable to locate ROM. Expected name: %s, CRC32: 0x%08x\n",
+                   debug,
+                   static_cast<unsigned>(expected_crc));
+
         loaded = false;
-        return 1; // fail
+        return 1;
     }
 
-    // Read file
-    char* buffer = new char[length];
-    src.read(buffer, length);
+    RFILE* source = filestream_open(
+        match->second.c_str(),
+        RETRO_VFS_FILE_ACCESS_READ,
+        RETRO_VFS_FILE_ACCESS_HINT_NONE);
 
-    // Interleave file as necessary
-    for (int i = 0; i < length; i++)
-        rom[(i * interleave) + offset] = buffer[i];
+    if (!source)
+    {
+        loaded = false;
+        return 1;
+    }
 
-    // Clean Up
-    delete[] buffer;
-    src.close();
+    std::vector<uint8_t> buffer(static_cast<size_t>(file_length));
+    const bool read_ok = read_exact(source, &buffer[0], buffer.size());
+    filestream_close(source);
+
+    if (!read_ok)
+    {
+        if (verbose && log_cb)
+            log_cb(RETRO_LOG_ERROR,
+                   "ROM has an unexpected size: %s\n",
+                   match->second.c_str());
+
+        loaded = false;
+        return 1;
+    }
+
+    for (int i = 0; i < file_length; i++)
+        rom[(i * interleave) + offset] = buffer[static_cast<size_t>(i)];
+
+    if (verbose && log_cb)
+        log_cb(RETRO_LOG_INFO,
+               "Loaded renamed ROM by CRC32: %s\n",
+               match->second.c_str());
+
     loaded = true;
-    return 0; // success
+    return 0;
 }
-
-// --------------------------------------------------------------------------------------------
-// Load Binary File (LayOut Levels, Tilemap Data etc.)
-// --------------------------------------------------------------------------------------------
 
 int RomLoader::load_binary(const char* filename)
 {
-    std::ifstream src(filename, std::ios::in | std::ios::binary);
-    if (!src)
+    RFILE* source = filestream_open(
+        filename,
+        RETRO_VFS_FILE_ACCESS_READ,
+        RETRO_VFS_FILE_ACCESS_HINT_NONE);
+
+    if (!source)
     {
-        std::cout << "cannot open file: " << filename << std::endl;
+        if (log_cb)
+            log_cb(RETRO_LOG_ERROR, "Cannot open file: %s\n", filename);
+
         loaded = false;
-        return 1; // fail
+        return 1;
     }
 
-    length = filesize(filename);
+    const int64_t file_length = filestream_get_size(source);
+    if (file_length <= 0)
+    {
+        filestream_close(source);
+        loaded = false;
+        return 1;
+    }
 
-    // Read file
-    char* buffer = new char[length];
-    src.read(buffer, length);
-    rom = (uint8_t*) buffer;
+    unload();
 
-    // Clean Up
-    src.close();
+    length = static_cast<uint32_t>(file_length);
+    rom = new uint8_t[length];
+
+    const bool read_ok = read_exact(source, rom, length);
+    filestream_close(source);
+
+    if (!read_ok)
+    {
+        unload();
+        return 1;
+    }
 
     loaded = true;
-    return 0; // success
-}
-
-int RomLoader::filesize(const char* filename)
-{
-    std::ifstream in(filename, std::ifstream::in | std::ifstream::binary);
-    in.seekg(0, std::ifstream::end);
-    int size = (int) in.tellg();
-    in.close();
-    return size; 
+    return 0;
 }

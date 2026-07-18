@@ -16,6 +16,15 @@
 
 #include "hwaudio/ym2151.hpp"
 
+#ifdef __PS3__
+#define memset std::memset
+#define pow std::pow
+#define floor std::floor
+#define sin std::sin
+#define log std::log
+#endif
+
+
 signed int     chanout[8];
 signed int     m2,c1,c2;            /* Phase Modulation input for operators 2,3,4  */
 signed int     mem;                 /* one sample delay memory */
@@ -401,13 +410,6 @@ static const uint8_t lfo_noise_waveform[256] = {
 0xE2,0x4D,0x8A,0xA6,0x46,0x95,0x0F,0x8F,0xF5,0x15,0x97,0x32,0xD4,0x28,0x1E,0x55
 };
 
-/* save output as raw 16-bit sample */
-/* #define SAVE_SAMPLE */
-/* #define SAVE_SEPARATE_CHANNELS */
-#if defined SAVE_SAMPLE || defined SAVE_SEPARATE_CHANNELS
-static FILE *sample[9];
-#endif
-
 YM2151::YM2151(float volume, uint32_t clock)
 {
     this->volume = volume;  
@@ -489,20 +491,6 @@ void YM2151::init_tables()
         d1l_tab[i] = (uint32_t) m;
         /*logerror("d1l_tab[%02x]=%08x\n",i,d1l_tab[i] );*/
     }
-
-#ifdef SAVE_SAMPLE
-    sample[8]=fopen("sampsum.pcm","wb");
-#endif
-#ifdef SAVE_SEPARATE_CHANNELS
-    sample[0]=fopen("samp0.pcm","wb");
-    sample[1]=fopen("samp1.pcm","wb");
-    sample[2]=fopen("samp2.pcm","wb");
-    sample[3]=fopen("samp3.pcm","wb");
-    sample[4]=fopen("samp4.pcm","wb");
-    sample[5]=fopen("samp5.pcm","wb");
-    sample[6]=fopen("samp6.pcm","wb");
-    sample[7]=fopen("samp7.pcm","wb");
-#endif
 }
 
 
