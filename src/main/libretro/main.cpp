@@ -32,6 +32,7 @@
 #include "engine/oinputs.hpp"
 #include "engine/ooutputs.hpp"
 #include "engine/omusic.hpp"
+#include "engine/ostats.hpp"
 
 #include "lr_options.hpp"
 
@@ -1182,15 +1183,44 @@ void retro_reset(void)
     audio.clear_wav();
 #endif
 
-    if (state == STATE_MENU ||
-        state == STATE_INIT_MENU)
-    {
-        state = STATE_INIT_MENU;
-    }
-    else
-    {
-        state = STATE_INIT_GAME;
-    }
+    // A frontend may request Reset immediately after changing a Core
+    // Option, without running another frame. Refresh the live options
+    // before selecting the reset destination.
+    update_variables(false);
+
+    // Reset the active game session to its initial state.
+    //
+    // Time Trial stores its selected mode, course and an artificial
+    // credit before handing control from the frontend to the engine.
+    // These values must not survive a frontend Reset request.
+    outrun.cannonball_mode = Outrun::MODE_ORIGINAL;
+
+    outrun.ttrial.level            = 0;
+    outrun.ttrial.current_lap      = 0;
+    outrun.ttrial.best_lap_counter = 0;
+    outrun.ttrial.best_lap[0]      = 0;
+    outrun.ttrial.best_lap[1]      = 0;
+    outrun.ttrial.best_lap[2]      = 0;
+    outrun.ttrial.new_high_score   = false;
+    outrun.ttrial.overtakes        = 0;
+    outrun.ttrial.crashes          = 0;
+    outrun.ttrial.vehicle_cols     = 0;
+
+    ostats.credits = 0;
+
+    // Reproduce the initial state selected when the content is loaded:
+    // main menu when enabled, otherwise the normal game boot sequence.
+    state = config.menu.enabled
+        ? STATE_INIT_MENU
+        : STATE_INIT_GAME;
+
+    if (log_cb)
+        log_cb(
+            RETRO_LOG_INFO,
+            "[Cannonball]: Reset target: %s.\n",
+            config.menu.enabled
+                ? "main menu"
+                : "attract mode");
 }
 
 struct button_bind
