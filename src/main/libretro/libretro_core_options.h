@@ -190,6 +190,42 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "ON"
    },
    {
+      "cannonball_sound_custom_wav_volume",
+      "Audio > Custom WAV Volume",
+      "Custom WAV Volume",
+      "Set playback volume of custom WAV music tracks. "
+      "Does not affect original arcade music or external BIN music. "
+      "50% matches the historical SDL attenuation; "
+      "values above 100% may clip when mixed with sound effects.",
+      NULL,
+      "audio",
+      {
+         { "0", "0%" },
+         { "10", "10%" },
+         { "20", "20%" },
+         { "30", "30%" },
+         { "40", "40%" },
+         { "50", "50%" },
+         { "60", "60%" },
+         { "70", "70%" },
+         { "80", "80%" },
+         { "90", "90%" },
+         { "100", "100%" },
+         { "110", "110%" },
+         { "120", "120%" },
+         { "130", "130%" },
+         { "140", "140%" },
+         { "150", "150%" },
+         { "160", "160%" },
+         { "170", "170%" },
+         { "180", "180%" },
+         { "190", "190%" },
+         { "200", "200%" },
+         { NULL, NULL },
+      },
+      "200"
+   },
+   {
       "cannonball_sound_advertise",
       "Audio > Advertise Sound (Restart)",
       "Advertise Sound (Restart)",
