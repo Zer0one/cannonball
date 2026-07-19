@@ -86,6 +86,97 @@ void Config::init()
 
 }
 
+void Config::load_custom_music(const std::string& filename)
+{
+    // Remove custom tracks added by any previous content load,
+    // while retaining the three original arcade tracks.
+    const size_t original_track_count = 3;
+
+    if (sound.music.size() > original_track_count)
+        sound.music.resize(original_track_count);
+
+    boost::property_tree::ptree pt;
+
+    try
+    {
+        read_xml(
+            filename,
+            pt,
+            boost::property_tree::xml_parser::trim_whitespace);
+    }
+    catch (std::exception& e)
+    {
+        if (log_cb)
+            log_cb(
+                RETRO_LOG_WARN,
+                "[Cannonball]: Could not read custom music configuration "
+                "%s: %s\n",
+                filename.c_str(),
+                e.what());
+
+        return;
+    }
+
+    unsigned loaded_tracks = 0;
+
+    // Scan track1, track2, track3... until the first undefined entry.
+    for (int i = 0; ; i++)
+    {
+        const std::string track_number = Utils::to_string(i + 1);
+        const std::string xmltag =
+            "sound.custom_music.track" + track_number;
+
+        boost::optional<int> enabled =
+            pt.get_optional<int>(
+                xmltag + ".<xmlattr>.enabled");
+
+        if (!enabled.is_initialized())
+            break;
+
+        if (enabled.value() != 1)
+            continue;
+
+        music_t music;
+
+        music.title = pt.get<std::string>(
+            xmltag + ".title",
+            "TRACK " + track_number);
+
+        music.filename = pt.get<std::string>(
+            xmltag + ".filename",
+            "track" + track_number + ".wav");
+
+        const size_t filename_length = music.filename.length();
+
+        const bool is_wav =
+            filename_length >= 4 &&
+            (
+                music.filename.compare(
+                    filename_length - 4, 4, ".wav") == 0 ||
+                music.filename.compare(
+                    filename_length - 4, 4, ".WAV") == 0
+            );
+
+        music.type = is_wav
+            ? music_t::IS_WAV
+            : music_t::IS_YM_EXT;
+
+        music.cmd = sound::MUSIC_CUSTOM;
+
+        sound.music.push_back(music);
+        loaded_tracks++;
+    }
+
+    if (log_cb)
+        log_cb(
+            RETRO_LOG_INFO,
+            "[Cannonball]: Loaded %u custom music track(s) "
+            "from %s\n",
+            loaded_tracks,
+            filename.c_str());
+}
+
+
 using boost::property_tree::ptree;
 ptree pt_config;
 

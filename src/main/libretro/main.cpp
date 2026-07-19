@@ -268,6 +268,8 @@ static bool update_option_visibility(void)
 
       option_display.key = "cannonball_sound_fix_samples";
       environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
+      option_display.key = "cannonball_sound_custom_wav_volume";
+      environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
 
       sound_enable_prev = sound_enable;
       updated           = true;
@@ -462,6 +464,27 @@ static void update_variables(bool startup)
          #endif
       }
    }
+
+   #ifdef COMPILE_SOUND_CODE
+   var.key = "cannonball_sound_custom_wav_volume";
+   var.value = NULL;
+
+   if (environ_cb(
+           RETRO_ENVIRONMENT_GET_VARIABLE,
+           &var) &&
+       var.value)
+   {
+       int volume = atoi(var.value);
+
+       if (volume < 0)
+           volume = 0;
+       else if (volume > 200)
+           volume = 200;
+
+       cannonball::audio.custom_wav_volume =
+           (uint16_t)volume;
+   }
+   #endif
 
    var.key = "cannonball_gear";
    var.value = NULL;
@@ -1037,6 +1060,9 @@ bool retro_load_game(const struct retro_game_info *info)
    config_init();
    config.data.res_path = std::string(rom_path) + "res/";
 
+   config.load_custom_music(
+         config.data.res_path + "config.xml");
+
    update_variables(true);
 
    // Load fixed PCM ROM based on config
@@ -1152,6 +1178,31 @@ void retro_deinit(void)
 
 void retro_reset(void)
 {
+    if (log_cb)
+        log_cb(
+            RETRO_LOG_INFO,
+            "[Cannonball]: Reset requested.\n");
+
+    pause_engine = false;
+    frame = 0;
+    tick_frame = true;
+    fps_counter = 0;
+
+    forcefeedback::deactivate_rumble();
+
+#ifdef COMPILE_SOUND_CODE
+    audio.clear_wav();
+#endif
+
+    if (state == STATE_MENU ||
+        state == STATE_INIT_MENU)
+    {
+        state = STATE_INIT_MENU;
+    }
+    else
+    {
+        state = STATE_INIT_GAME;
+    }
 }
 
 struct button_bind

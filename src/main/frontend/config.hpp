@@ -162,6 +162,7 @@ public:
     ~Config(void);
 
     void init();
+    void load_custom_music(const std::string& filename);
     void load_scores(const std::string &filename);
     void save_scores(const std::string &filename);
     void load_tiletrial_scores();
