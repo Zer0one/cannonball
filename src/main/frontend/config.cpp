@@ -18,6 +18,8 @@
 #pragma clang diagnostic pop
 #endif
 
+#include <pugixml/pugixml.hpp>
+
 #include <libretro.h>
 
 #include "main.hpp"
@@ -102,16 +104,15 @@ void Config::load_custom_music(const std::string& filename)
     if (sound.music.size() > original_track_count)
         sound.music.resize(original_track_count);
 
-    boost::property_tree::ptree pt;
+    pugi::xml_document document;
 
-    try
-    {
-        read_xml(
-            filename,
-            pt,
-            boost::property_tree::xml_parser::trim_whitespace);
-    }
-    catch (std::exception& e)
+    const pugi::xml_parse_result result =
+        document.load_file(
+            filename.c_str(),
+            pugi::parse_default |
+                pugi::parse_trim_pcdata);
+
+    if (!result)
     {
         if (log_cb)
             log_cb(
@@ -119,49 +120,74 @@ void Config::load_custom_music(const std::string& filename)
                 "[Cannonball]: Could not read custom music configuration "
                 "%s: %s\n",
                 filename.c_str(),
-                e.what());
+                result.description());
 
         return;
     }
 
+    const pugi::xml_node custom_music =
+        document
+            .child("sound")
+            .child("custom_music");
+
     unsigned loaded_tracks = 0;
 
-    // Scan track1, track2, track3... until the first undefined entry.
+    // Scan track1, track2, track3... until the first entry
+    // without an enabled attribute.
     for (int i = 0; ; i++)
     {
-        const std::string track_number = Utils::to_string(i + 1);
-        const std::string xmltag =
-            "sound.custom_music.track" + track_number;
+        const std::string track_number =
+            Utils::to_string(i + 1);
 
-        boost::optional<int> enabled =
-            pt.get_optional<int>(
-                xmltag + ".<xmlattr>.enabled");
+        const std::string track_name =
+            "track" + track_number;
 
-        if (!enabled.is_initialized())
+        const pugi::xml_node track =
+            custom_music.child(track_name.c_str());
+
+        const pugi::xml_attribute enabled =
+            track.attribute("enabled");
+
+        if (!enabled)
             break;
 
-        if (enabled.value() != 1)
+        if (enabled.as_int() != 1)
             continue;
 
         music_t music;
 
-        music.title = pt.get<std::string>(
-            xmltag + ".title",
-            "TRACK " + track_number);
+        const std::string default_title =
+            "TRACK " + track_number;
 
-        music.filename = pt.get<std::string>(
-            xmltag + ".filename",
-            "track" + track_number + ".wav");
+        const std::string default_filename =
+            "track" + track_number + ".wav";
 
-        const size_t filename_length = music.filename.length();
+        music.title =
+            track
+                .child("title")
+                .text()
+                .as_string(default_title.c_str());
+
+        music.filename =
+            track
+                .child("filename")
+                .text()
+                .as_string(default_filename.c_str());
+
+        const size_t filename_length =
+            music.filename.length();
 
         const bool is_wav =
             filename_length >= 4 &&
             (
                 music.filename.compare(
-                    filename_length - 4, 4, ".wav") == 0 ||
+                    filename_length - 4,
+                    4,
+                    ".wav") == 0 ||
                 music.filename.compare(
-                    filename_length - 4, 4, ".WAV") == 0
+                    filename_length - 4,
+                    4,
+                    ".WAV") == 0
             );
 
         music.type = is_wav
@@ -182,7 +208,6 @@ void Config::load_custom_music(const std::string& filename)
             loaded_tracks,
             filename.c_str());
 }
-
 
 using boost::property_tree::ptree;
 ptree pt_config;
