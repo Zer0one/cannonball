@@ -307,6 +307,18 @@ const static uint32_t PALETTE_EXPANSION[] =
 	0x00006650, 0x67626a94, 0x6ba54bb7, 0x2cb90ddd, 0x09ab089a, 0x007d000f, 0x00000888, 0x06660000, // Palette 273: Cyan Ferrari. Brake Lamp On / Tyre Pattern A	
 	0x00006650, 0x67626a94, 0x6ba54bb7, 0x2cb90ddd, 0x09ab089a, 0x007d000f, 0x00000666, 0x08880000, // Palette 274: Cyan Ferrari. Brake Lamp On / Tyre Pattern B
 	0x00000000, 0x0ffc0777, 0x08880999, 0x0aaa0bbb, 0x0ccc0ddd, 0x0fff2cb9, 0x4bb76ba5, 0x6a940000, // Palette 275: Cyan Ferrari. Flip (11=6, 12=5, 13=4, 14=3 from normal palette)
+
+    0x00000000, 0x01110333, 0x05550777, 0x09990ddd, 0x09ab089a, 0x007d0008, 0x00000888, 0x06660000, // Palette 276: Black Ferrari. No Brake Lamp / Tyre Pattern A
+    0x00000000, 0x01110333, 0x05550777, 0x09990ddd, 0x09ab089a, 0x007d0008, 0x00000666, 0x08880000, // Palette 277: Black Ferrari. No Brake Lamp / Tyre Pattern B
+    0x00000000, 0x01110333, 0x05550777, 0x09990ddd, 0x09ab089a, 0x007d000f, 0x00000888, 0x06660000, // Palette 278: Black Ferrari. Brake Lamp On / Tyre Pattern A
+    0x00000000, 0x01110333, 0x05550777, 0x09990ddd, 0x09ab089a, 0x007d000f, 0x00000666, 0x08880000, // Palette 279: Black Ferrari. Brake Lamp On / Tyre Pattern B
+    0x00000000, 0x0ffc0777, 0x08880999, 0x0aaa0bbb, 0x0ccc0ddd, 0x0fff0999, 0x07770555, 0x03330000, // Palette 280: Black Ferrari. Flip
+
+    0x00000666, 0x08880aaa, 0x0ccc0ddd, 0x0eee0fff, 0x09ab089a, 0x007d0008, 0x00000888, 0x06660000, // Palette 281: White Ferrari. No Brake Lamp / Tyre Pattern A
+    0x00000666, 0x08880aaa, 0x0ccc0ddd, 0x0eee0fff, 0x09ab089a, 0x007d0008, 0x00000666, 0x08880000, // Palette 282: White Ferrari. No Brake Lamp / Tyre Pattern B
+    0x00000666, 0x08880aaa, 0x0ccc0ddd, 0x0eee0fff, 0x09ab089a, 0x007d000f, 0x00000888, 0x06660000, // Palette 283: White Ferrari. Brake Lamp On / Tyre Pattern A
+    0x00000666, 0x08880aaa, 0x0ccc0ddd, 0x0eee0fff, 0x09ab089a, 0x007d000f, 0x00000666, 0x08880000, // Palette 284: White Ferrari. Brake Lamp On / Tyre Pattern B
+    0x00000000, 0x0ffc0777, 0x08880999, 0x0aaa0bbb, 0x0ccc0ddd, 0x0fff0eee, 0x0ddd0ccc, 0x0aaa0000, // Palette 285: White Ferrari. Flip
 };
 
 const static int PAL_LOOKUP_LENGTH = (sizeof(PALETTE_EXPANSION) / sizeof(PALETTE_EXPANSION[0])) / 8;

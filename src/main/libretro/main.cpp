@@ -592,6 +592,10 @@ static void update_variables(bool startup)
          car_pal = 3;
       else if (strcmp(var.value, "CYAN") == 0)
          car_pal = 4;
+      else if (strcmp(var.value, "BLACK") == 0)
+         car_pal = 5;
+      else if (strcmp(var.value, "WHITE") == 0)
+         car_pal = 6;
 
       config.engine.car_pal = car_pal;
    }

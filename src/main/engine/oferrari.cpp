@@ -38,6 +38,8 @@ static const uint16_t FERRARI_PALETTES[] =
     OFerrari::PAL_YELLOW,   // Yellow
     OFerrari::PAL_GREEN,    // Green
     OFerrari::PAL_CYAN,     // Cyan
+    OFerrari::PAL_BLACK,  // Black
+    OFerrari::PAL_WHITE,  // White
 };
 
 OFerrari::OFerrari(void)

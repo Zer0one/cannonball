@@ -171,7 +171,7 @@ const static char* ENTRY_BUMPER     = "STRONG BUMPER ";
 const static char* ENTRY_TURBO      = "FASTER CAR ";
 const static char* ENTRY_COLOR      = "CAR COLOR ";
 
-const static char* COLOR_LABELS[5]  = { "RED", "BLUE", "YELLOW", "GREEN", "CYAN" };
+const static char* COLOR_LABELS[7]  = { "RED", "BLUE", "YELLOW", "GREEN", "CYAN", "BLACK", "WHITE" };
 
 // Music Test Menu
 const static char* ENTRY_MUSIC1     = "MAGICAL SOUND SHOWER";
@@ -957,7 +957,7 @@ void Menu::tick_menu()
             }
             else if (SELECTED(ENTRY_COLOR))
             {
-                if (++config.engine.car_pal > 4)
+                if (++config.engine.car_pal > 6)
                     config.engine.car_pal = 0;
 #ifdef __LIBRETRO__
                 lr_options::set_frontend_variable(&config.engine.car_pal);

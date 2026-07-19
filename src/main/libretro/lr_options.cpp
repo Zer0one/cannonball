@@ -185,6 +185,12 @@ namespace lr_options
          case 4:
             strlcpy(str, "CYAN", len);
             break;
+         case 5:
+            strlcpy(str, "BLACK", len);
+            break;
+         case 6:
+            strlcpy(str, "WHITE", len);
+            break;
          default:
             return false;
       }
