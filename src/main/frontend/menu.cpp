@@ -8,8 +8,6 @@
 
 #include <vector>
 #include <iterator>
-#include <boost/range/as_literal.hpp>
-#include <boost/algorithm/string/compare.hpp>
 
 #include "main.hpp"
 #include "menu.hpp"
@@ -35,53 +33,6 @@ extern void update_geometry();
 extern void update_timing(void);
 #endif
 
-namespace boost {
-    namespace algorithm {
-
-        template<typename Range1T, typename Range2T, typename PredicateT>
-            inline bool starts_with( 
-            const Range1T& Input, 
-            const Range2T& Test,
-            PredicateT Comp)
-        {
-            iterator_range<BOOST_STRING_TYPENAME range_const_iterator<Range1T>::type> lit_input(::boost::as_literal(Input));
-            iterator_range<BOOST_STRING_TYPENAME range_const_iterator<Range2T>::type> lit_test(::boost::as_literal(Test));
-
-            typedef BOOST_STRING_TYPENAME 
-                range_const_iterator<Range1T>::type Iterator1T;
-            typedef BOOST_STRING_TYPENAME 
-                range_const_iterator<Range2T>::type Iterator2T;
-
-            Iterator1T InputEnd=::boost::end(lit_input);
-            Iterator2T TestEnd=::boost::end(lit_test);
-
-            Iterator1T it=::boost::begin(lit_input);
-            Iterator2T pit=::boost::begin(lit_test);
-            for(;
-                it!=InputEnd && pit!=TestEnd;
-                ++it,++pit)
-            {
-                if( !(Comp(*it,*pit)) )
-                    return false;
-            }
-
-            return pit==TestEnd;
-        }
-
-        template<typename Range1T, typename Range2T>
-        inline bool starts_with( 
-            const Range1T& Input, 
-            const Range2T& Test)
-        {
-            return ::boost::algorithm::starts_with(Input, Test, is_equal());
-        }
-
-    } // namespace algorithm
-
-    // pull names to the boost namespace
-    using algorithm::starts_with;
-
-} // namespace boost
 
 // Logo Y Position
 const static int16_t LOGO_Y = -60;
@@ -484,7 +435,20 @@ void Menu::draw_text(std::string s)
     ohud.blit_text_new(x, y, s.c_str(), ohud.GREEN);
 }
 
-#define SELECTED(string) boost::starts_with(OPTION, string)
+static bool menu_starts_with(
+    const std::string& value,
+    const std::string& prefix)
+{
+    return
+        value.size() >= prefix.size() &&
+        value.compare(
+            0,
+            prefix.size(),
+            prefix) == 0;
+}
+
+
+#define SELECTED(string) menu_starts_with(OPTION, string)
 
 void Menu::tick_menu()
 {
