@@ -107,18 +107,6 @@ static void config_init(void)
     config.sound.fix_samples = 1;
     config.sound.music_timer = MUSIC_TIMER;
 
-#if 0
-    // Custom Music
-    for (int i = 0; i < 4; i++)
-    {
-        std::string xmltag = "sound.custom_music.track";
-        xmltag += Utils::to_string(i+1);  
-
-        config.sound.custom_music[i].enabled = pt_config.get(xmltag + ".<xmlattr>.enabled", 0);
-        config.sound.custom_music[i].title   = pt_config.get(xmltag + ".title", "TRACK " +Utils::to_string(i+1));
-        config.sound.custom_music[i].filename= pt_config.get(xmltag + ".filename", "track"+Utils::to_string(i+1)+".wav");
-    }
-#endif
 
 
     // ------------------------------------------------------------------------

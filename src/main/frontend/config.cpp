@@ -7,16 +7,6 @@
     See license.txt for more details.
 ***************************************************************************/
 
-// see: http://www.boost.org/doc/libs/1_52_0/doc/html/boost_propertytree/tutorial.html
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-builtins"
-#endif
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/xml_parser.hpp>
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
 
 #include <pugixml/pugixml.hpp>
 
@@ -42,12 +32,6 @@ extern retro_log_printf_t                 log_cb;
 #endif
 
 
-// api change in boost 1.56
-#if (BOOST_VERSION >= 105600)
-typedef boost::property_tree::xml_writer_settings<std::string> xml_writer_settings;
-#else
-typedef boost::property_tree::xml_writer_settings<char> xml_writer_settings;
-#endif
 
 Config config;
 
@@ -209,126 +193,268 @@ void Config::load_custom_music(const std::string& filename)
             filename.c_str());
 }
 
-using boost::property_tree::ptree;
-ptree pt_config;
+static std::string get_xml_filename(
+    const std::string& filename,
+    const bool japanese)
+{
+    return japanese
+        ? filename + "_jap.xml"
+        : filename + ".xml";
+}
+
+
+static void append_xml_declaration(
+    pugi::xml_document& document)
+{
+    pugi::xml_node declaration =
+        document.append_child(pugi::node_declaration);
+
+    declaration.append_attribute("version") = "1.0";
+    declaration.append_attribute("encoding") = "utf-8";
+}
+
 
 void Config::load_scores(const std::string &filename)
 {
-    // Create empty property tree object
-    ptree pt;
+    const std::string xml_filename =
+        get_xml_filename(filename, engine.jap);
 
-    try
-    {
-        read_xml(engine.jap ? filename + "_jap.xml" : filename + ".xml" , pt, boost::property_tree::xml_parser::trim_whitespace);
-    }
-    catch (std::exception &e)
-    {
-        e.what();
+    pugi::xml_document document;
+
+    const pugi::xml_parse_result result =
+        document.load_file(
+            xml_filename.c_str(),
+            pugi::parse_default |
+                pugi::parse_trim_pcdata |
+                pugi::parse_fragment);
+
+    if (!result)
         return;
-    }
-    
+
     // Game Scores
     for (int i = 0; i < ohiscore.NO_SCORES; i++)
     {
         score_entry* e = &ohiscore.scores[i];
-        
-        std::string xmltag = "score";
-        xmltag += Utils::to_string(i);  
-    
-        e->score    = Utils::from_hex_string(pt.get<std::string>(xmltag + ".score",    "0"));
-        e->initial1 = pt.get(xmltag + ".initial1", ".")[0];
-        e->initial2 = pt.get(xmltag + ".initial2", ".")[0];
-        e->initial3 = pt.get(xmltag + ".initial3", ".")[0];
-        e->maptiles = Utils::from_hex_string(pt.get<std::string>(xmltag + ".maptiles", "20202020"));
-        e->time     = Utils::from_hex_string(pt.get<std::string>(xmltag + ".time"    , "0")); 
 
-        if (e->initial1 == '.') e->initial1 = 0x20;
-        if (e->initial2 == '.') e->initial2 = 0x20;
-        if (e->initial3 == '.') e->initial3 = 0x20;
+        const std::string score_name =
+            "score" + Utils::to_string(i);
+
+        const pugi::xml_node score =
+            document.child(score_name.c_str());
+
+        e->score =
+            Utils::from_hex_string(
+                score
+                    .child("score")
+                    .text()
+                    .as_string("0"));
+
+        const char* initial1 =
+            score
+                .child("initial1")
+                .text()
+                .as_string(".");
+
+        const char* initial2 =
+            score
+                .child("initial2")
+                .text()
+                .as_string(".");
+
+        const char* initial3 =
+            score
+                .child("initial3")
+                .text()
+                .as_string(".");
+
+        e->initial1 = initial1[0] ? initial1[0] : '.';
+        e->initial2 = initial2[0] ? initial2[0] : '.';
+        e->initial3 = initial3[0] ? initial3[0] : '.';
+
+        e->maptiles =
+            Utils::from_hex_string(
+                score
+                    .child("maptiles")
+                    .text()
+                    .as_string("20202020"));
+
+        e->time =
+            Utils::from_hex_string(
+                score
+                    .child("time")
+                    .text()
+                    .as_string("0"));
+
+        if (e->initial1 == '.')
+            e->initial1 = 0x20;
+
+        if (e->initial2 == '.')
+            e->initial2 = 0x20;
+
+        if (e->initial3 == '.')
+            e->initial3 = 0x20;
     }
 }
+
 
 void Config::save_scores(const std::string &filename)
 {
-    // Create empty property tree object
-    ptree pt;
-        
+    const std::string xml_filename =
+        get_xml_filename(filename, engine.jap);
+
+    pugi::xml_document document;
+
+    append_xml_declaration(document);
+
     for (int i = 0; i < ohiscore.NO_SCORES; i++)
     {
         score_entry* e = &ohiscore.scores[i];
-    
-        std::string xmltag = "score";
-        xmltag += Utils::to_string(i);    
-        
-        pt.put(xmltag + ".score",    Utils::to_hex_string(e->score));
-        pt.put(xmltag + ".initial1", e->initial1 == 0x20 ? "." : Utils::to_string((char) e->initial1)); // use . to represent space
-        pt.put(xmltag + ".initial2", e->initial2 == 0x20 ? "." : Utils::to_string((char) e->initial2));
-        pt.put(xmltag + ".initial3", e->initial3 == 0x20 ? "." : Utils::to_string((char) e->initial3));
-        pt.put(xmltag + ".maptiles", Utils::to_hex_string(e->maptiles));
-        pt.put(xmltag + ".time",     Utils::to_hex_string(e->time));
+
+        const std::string score_name =
+            "score" + Utils::to_string(i);
+
+        pugi::xml_node score =
+            document.append_child(score_name.c_str());
+
+        score
+            .append_child("score")
+            .text()
+            .set(Utils::to_hex_string(e->score).c_str());
+
+        const std::string initial1 =
+            e->initial1 == 0x20
+                ? "."
+                : Utils::to_string(
+                    static_cast<char>(e->initial1));
+
+        const std::string initial2 =
+            e->initial2 == 0x20
+                ? "."
+                : Utils::to_string(
+                    static_cast<char>(e->initial2));
+
+        const std::string initial3 =
+            e->initial3 == 0x20
+                ? "."
+                : Utils::to_string(
+                    static_cast<char>(e->initial3));
+
+        score
+            .append_child("initial1")
+            .text()
+            .set(initial1.c_str());
+
+        score
+            .append_child("initial2")
+            .text()
+            .set(initial2.c_str());
+
+        score
+            .append_child("initial3")
+            .text()
+            .set(initial3.c_str());
+
+        score
+            .append_child("maptiles")
+            .text()
+            .set(Utils::to_hex_string(e->maptiles).c_str());
+
+        score
+            .append_child("time")
+            .text()
+            .set(Utils::to_hex_string(e->time).c_str());
     }
-    
-    try
-    {
-        write_xml(engine.jap ? filename + "_jap.xml" : filename + ".xml", pt, std::locale(), xml_writer_settings('\t', 1)); // Tab space 1
-    }
-    catch (std::exception &e)
-    {
-        log_cb(RETRO_LOG_ERROR, "Error saving hiscores: %s\n", e.what());
-    }
+
+    const bool saved =
+        document.save_file(
+            xml_filename.c_str(),
+            "\t",
+            pugi::format_default,
+            pugi::encoding_utf8);
+
+    if (!saved && log_cb)
+        log_cb(
+            RETRO_LOG_ERROR,
+            "Error saving hiscores: %s\n",
+            xml_filename.c_str());
 }
+
 
 void Config::load_tiletrial_scores()
 {
-    const std::string filename = FILENAME_TTRIAL;
+    const std::string xml_filename =
+        get_xml_filename(FILENAME_TTRIAL, engine.jap);
 
-    // Counter value that represents 1m 15s 0ms
+    // Counter value representing 1m 15s 0ms.
     static const uint16_t COUNTER_1M_15 = 0x11D0;
 
-    // Create empty property tree object
-    ptree pt;
+    for (int i = 0; i < 15; i++)
+        ttrial.best_times[i] = COUNTER_1M_15;
 
-    try
-    {
-        read_xml(engine.jap ? filename + "_jap.xml" : filename + ".xml" , pt, boost::property_tree::xml_parser::trim_whitespace);
-    }
-    catch (std::exception &e)
-    {
-        for (int i = 0; i < 15; i++)
-            ttrial.best_times[i] = COUNTER_1M_15;
+    pugi::xml_document document;
 
-        e.what();
+    const pugi::xml_parse_result result =
+        document.load_file(
+            xml_filename.c_str(),
+            pugi::parse_default |
+                pugi::parse_trim_pcdata |
+                pugi::parse_fragment);
+
+    if (!result)
         return;
-    }
 
-    // Time Trial Scores
+    const pugi::xml_node time_trial =
+        document.child("time_trial");
+
     for (int i = 0; i < 15; i++)
     {
-        ttrial.best_times[i] = pt.get("time_trial.score" + Utils::to_string(i), COUNTER_1M_15);
+        const std::string score_name =
+            "score" + Utils::to_string(i);
+
+        ttrial.best_times[i] =
+            time_trial
+                .child(score_name.c_str())
+                .text()
+                .as_uint(COUNTER_1M_15);
     }
 }
 
+
 void Config::save_tiletrial_scores()
 {
-    const std::string filename = FILENAME_TTRIAL;
+    const std::string xml_filename =
+        get_xml_filename(FILENAME_TTRIAL, engine.jap);
 
-    // Create empty property tree object
-    ptree pt;
+    pugi::xml_document document;
 
-    // Time Trial Scores
+    append_xml_declaration(document);
+
+    pugi::xml_node time_trial =
+        document.append_child("time_trial");
+
     for (int i = 0; i < 15; i++)
     {
-        pt.put("time_trial.score" + Utils::to_string(i), ttrial.best_times[i]);
+        const std::string score_name =
+            "score" + Utils::to_string(i);
+
+        time_trial
+            .append_child(score_name.c_str())
+            .text()
+            .set(ttrial.best_times[i]);
     }
 
-    try
-    {
-        write_xml(engine.jap ? filename + "_jap.xml" : filename + ".xml", pt, std::locale(), xml_writer_settings('\t', 1)); // Tab space 1
-    }
-    catch (std::exception &e)
-    {
-        log_cb(RETRO_LOG_ERROR, "Error saving hiscores: %s\n", e.what());
-    }
+    const bool saved =
+        document.save_file(
+            xml_filename.c_str(),
+            "\t",
+            pugi::format_default,
+            pugi::encoding_utf8);
+
+    if (!saved && log_cb)
+        log_cb(
+            RETRO_LOG_ERROR,
+            "Error saving time-trial scores: %s\n",
+            xml_filename.c_str());
 }
 
 bool Config::clear_scores()
