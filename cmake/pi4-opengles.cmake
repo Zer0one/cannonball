@@ -16,7 +16,6 @@
 
 # Library Locations
 set(lib_base c:/coding/lib)
-set(boost_dir ${lib_base}/boost_1_74_0)
 set(sdl2_dir ${lib_base}/SDL2-2.0.12)
 
 # Use OpenGLES for rendering.

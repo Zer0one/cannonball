@@ -244,9 +244,6 @@ endif()
 # Library Setup
 # -----------------------------------------------------------------------------
 
-set(BOOST_INCLUDEDIR ${boost_dir})
-find_package(Boost REQUIRED)
-
 set(SDL2_DIR ${sdl2_dir})
 find_package(SDL2 REQUIRED)
 message("SDL2 Include  : ${SDL2_INCLUDE_DIRS}")
@@ -255,7 +252,6 @@ message("SDL2 Libraries: ${SDL2_LIBRARIES}")
 # Include
 include_directories(
     ${main_cpp_base}
-    ${BOOST_INCLUDEDIR}
     ${SDL2_INCLUDE_DIRS}
 )
 
