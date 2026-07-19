@@ -886,7 +886,7 @@ void OCrash::init_spin1()
     crash_spin_count = 2;
     spinflipcount2 = 2;
 
-    slide = ((spins + 1) << 2) + (car_inc > 0xFF) ? 0xFF >> 3 : car_inc >> 3;
+    slide = ((spins + 1) << 2) + ((car_inc > 0xFF ? 0xFF : car_inc) >> 3);
 
     if (skid_counter_bak < 0)
         addr = outrun.adr.sprite_crash_spin1;
