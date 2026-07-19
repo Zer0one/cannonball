@@ -1206,7 +1206,7 @@ void OSound::ym_end_track(uint8_t* chan)
         return;
     }
     
-    *(chan -= 0x2C0); // = corresponding music channel
+    chan -= 0x2C0; // = corresponding music channel
 
     // Return if no sound playing on corresponding channel
     if (!(chan[ch::FLAGS] & BIT_7))

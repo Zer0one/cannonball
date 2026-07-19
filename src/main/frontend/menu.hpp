@@ -61,8 +61,6 @@ private:
     // Stores whether this is a textual menu (i.e. no options that can be chosen)
     bool is_text_menu;
 
-    // Used to control the horizon pan effect
-    uint16_t horizon_pos;
 
     std::vector<std::string>* menu_selected;
     std::vector<std::string> menu_main;

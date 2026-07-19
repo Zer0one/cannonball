@@ -84,7 +84,7 @@ void OInitEngine::init(int8_t level)
     if (level)
         trackloader.init_path(oroad.stage_lookup_off);
 
-	opalette.setup_sky_palette();
+    opalette.setup_sky_palette();
 	opalette.setup_ground_color();
 	opalette.setup_road_centre();
 	opalette.setup_road_stripes();

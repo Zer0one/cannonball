@@ -8,8 +8,15 @@
 ***************************************************************************/
 
 // see: http://www.boost.org/doc/libs/1_52_0/doc/html/boost_propertytree/tutorial.html
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-builtins"
+#endif
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/xml_parser.hpp>
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 #include <libretro.h>
 
