@@ -132,19 +132,22 @@ int Roms_load_pcm_rom(Roms* self, bool fixed_rom)
 
 bool Roms_load_ym_data(Roms* self, const char* filename)
 {
-    RomLoader data;
+    bool loaded = false;
+    RomLoader data = {0};
+
     if (RomLoader_load_binary(&(data), filename) == 0)
     {
         if (data.length < 0x8000)
         {
             memcpy(self->z80.rom + 0x8000, data.rom, data.length);
-            RomLoader_unload(&(data));
-            return true;
+            loaded = true;
         }
         else
         {
             fprintf(stderr, "YM Data is too large: %s\n", filename);
         }
     }
-    return false;
+
+    RomLoader_unload(&(data));
+    return loaded;
 }
