@@ -9,6 +9,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <compat/msvc.h>
 #include "main.h"
 #include "engine/oferrari.h"
@@ -30,6 +31,10 @@ static void OMusic_tick_original(OMusic* self, oentry*, oentry*, oentry*);
 static void OMusic_tick_enhanced(OMusic* self, oentry*, oentry*, oentry*);
 static void OMusic_set_hand(OMusic* self, short, oentry*, oentry*, oentry*);
 static void OMusic_blit_music_select(OMusic* self);
+static void OMusic_change_music(OMusic* self, int direction);
+static void OMusic_clear_track_title(void);
+static void OMusic_draw_track_title(OMusic* self);
+static size_t OMusic_format_track_title(OMusic* self, char title[41]);
 
 OMusic omusic;
 
@@ -37,6 +42,7 @@ void OMusic_ctor(OMusic* self)
 {
     self->tilemap    = NULL;
     self->tile_patch = NULL;
+    self->track_title_counter = 0;
 }
 
 
@@ -117,6 +123,7 @@ void OMusic_enable(OMusic* self)
     hwtiles_set_x_clamp(video.tile_layer, CLAMP_CENTRE);
     self->cursor_pos = 1;
     self->total_tracks = (int)config.sound.music_num;
+    self->track_title_counter = 0;
 }
 
 void OMusic_disable(OMusic* self)
@@ -294,6 +301,8 @@ void OMusic_play_music(OMusic* self, int index)
             break;
 
         case IS_WAV:
+            cannonball_audio.custom_wav_track_volume =
+                self->next_track->volume;
             { char mp[600]; snprintf(mp, sizeof(mp), "%s%s", config.data.res_path, self->next_track->filename); Audio_load_wav(&cannonball_audio, mp); }
             break;
     }
@@ -306,6 +315,109 @@ void OMusic_cycle_music(OMusic* self)
 {
     if (++self->music_selected > 2) self->music_selected = 0;
     OMusic_play_music(self, -1);
+}
+
+/* Change music while driving and briefly display the selected track. */
+void OMusic_tick_ingame(OMusic* self)
+{
+    if (!config.sound.ingame_music_controls)
+    {
+        if (self->track_title_counter > 0)
+        {
+            self->track_title_counter = 0;
+            OMusic_clear_track_title();
+        }
+
+        return;
+    }
+
+    if (Input_has_pressed(&input, UP))
+        OMusic_change_music(self, 1);
+    else if (Input_has_pressed(&input, DOWN))
+        OMusic_change_music(self, -1);
+
+    if (self->track_title_counter > 0 &&
+        --self->track_title_counter == 0)
+        OMusic_clear_track_title();
+}
+
+static void OMusic_change_music(OMusic* self, int direction)
+{
+    int track_count = config.sound.music_num;
+    int index;
+
+    if (track_count <= 0)
+        return;
+
+    index = self->last_music_selected;
+
+    if (index < 0 || index >= track_count)
+        index = self->music_selected;
+
+    index += direction;
+
+    if (index >= track_count)
+        index = 0;
+    else if (index < 0)
+        index = track_count - 1;
+
+    self->music_selected = (uint8_t)index;
+
+    /* Stop any currently playing YM track before loading a WAV. */
+    if (config.sound.music[index].type == IS_WAV)
+        OSoundInt_queue_sound(&osoundint, SOUND_FM_RESET);
+
+    OMusic_play_music(self, index);
+    OMusic_draw_track_title(self);
+}
+
+static void OMusic_clear_track_title(void)
+{
+    const uint8_t title_y = 4;
+    uint8_t x;
+
+    for (x = 0; x < 40; x++)
+        Video_write_text16(
+            &video,
+            OHud_translate(&ohud, x, title_y, 0x110030),
+            0);
+}
+
+static void OMusic_draw_track_title(OMusic* self)
+{
+    const uint8_t title_y = 4;
+    const size_t max_length = 40;
+    char title[41];
+    size_t length = OMusic_format_track_title(self, title);
+
+    OMusic_clear_track_title();
+    OHud_blit_text_new(
+        &ohud,
+        (uint16_t)((max_length - length) / 2),
+        title_y,
+        title,
+        GREEN);
+
+    /* Engine input ticks run at 30 Hz. */
+    self->track_title_counter = 3 * 30;
+}
+
+static size_t OMusic_format_track_title(OMusic* self, char title[41])
+{
+    const size_t max_length = 40;
+    const char* source =
+        config.sound.music[self->music_selected].title;
+    size_t length = strlen(source);
+
+    if (length > max_length)
+    {
+        memcpy(title, source, max_length - 3);
+        memcpy(title + max_length - 3, "...", 4);
+        return max_length;
+    }
+
+    memcpy(title, source, length + 1);
+    return length;
 }
 
 /* Original Version of Music Selection Screen With 3 Tracks. */
@@ -348,6 +460,8 @@ static void OMusic_tick_original(OMusic* self, oentry* fm, oentry* dial, oentry*
 /* Enhanced Version of music selection with infinite tracks. */
 static void OMusic_tick_enhanced(OMusic* self, oentry* fm, oentry* dial, oentry* hand)
 {
+    char title[41];
+
     if (Input_has_pressed(&input, LEFT) || OInputs_is_analog_l(&oinputs))
         if (--self->cursor_pos < 0) self->cursor_pos = self->total_tracks - 1;
     if (Input_has_pressed(&input, RIGHT) || OInputs_is_analog_r(&oinputs))
@@ -361,7 +475,8 @@ static void OMusic_tick_enhanced(OMusic* self, oentry* fm, oentry* dial, oentry*
         OMusic_set_hand(self, HAND_RIGHT, fm, dial, hand);
 
     self->music_selected = self->cursor_pos;
-    OHud_blit_text_big(&ohud, 11, config.sound.music[self->music_selected].title, true);
+    OMusic_format_track_title(self, title);
+    OHud_blit_text_big(&ohud, 11, title, true);
 }
 
 static void OMusic_set_hand(OMusic* self, short direction, oentry* fm, oentry* dial, oentry* hand)

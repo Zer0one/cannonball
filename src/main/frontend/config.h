@@ -23,14 +23,19 @@ typedef struct data_settings_t
     char res_path[512];
 } data_settings_t;
 
+#define MUSIC_TRACK_MAX 64
+#define MUSIC_TITLE_MAX 64
+#define MUSIC_FILENAME_MAX 64
+
 enum { IS_YM_INT = 0, IS_YM_EXT = 1, IS_WAV = 2 };
 
 typedef struct music_t
 {
     int type;
     int cmd;
-    char title[32];
-    char filename[64];
+    uint16_t volume;
+    char title[MUSIC_TITLE_MAX];
+    char filename[MUSIC_FILENAME_MAX];
 } music_t;
 
 
@@ -70,8 +75,9 @@ typedef struct sound_settings_t
     int advertise;
     int preview;
     int fix_samples;
+    int ingame_music_controls;
     int music_timer;
-    music_t music[8];
+    music_t music[MUSIC_TRACK_MAX];
     int     music_num;
 } sound_settings_t;
 
@@ -145,6 +151,7 @@ void Config_ctor(Config* self);
 
 void Config_init(Config* self);
 
+bool Config_load_custom_music(Config* self, const char* filename);
 
 void Config_load_scores(Config* self, const char* filename);
 

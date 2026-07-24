@@ -30,6 +30,7 @@ typedef struct OMusic
     uint16_t entry_start;
     int16_t last_music_selected;
     int8_t preview_counter;
+    int16_t track_title_counter;
 } OMusic;
 
 extern OMusic omusic;
@@ -53,6 +54,8 @@ void OMusic_check_start(OMusic* self);
 void OMusic_play_music(OMusic* self, int index);
 
 void OMusic_cycle_music(OMusic* self);
+
+void OMusic_tick_ingame(OMusic* self);
 
 extern OMusic omusic;
 

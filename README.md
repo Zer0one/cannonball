@@ -37,6 +37,27 @@ The core supports the `.game` and `.88` content entry points.
 Feature availability may depend on the Libretro frontend, operating
 system and selected input driver.
 
+## Custom Music
+
+Custom WAV and BIN tracks are defined in `res/music.csv`, relative to
+the CannonBall content directory:
+
+```csv
+enabled,volume,title,filename
+1,80,MAGICAL SOUND SHOWER,magical.wav
+1,100,CRUISING LINE SWITCH,switch_cruisingline.bin
+```
+
+Rows are played in file order. `volume` is a percentage from 0 to 300,
+defaults to 100 when empty and affects WAV tracks only. The corresponding
+RetroArch options select per-track CSV volume or a global WAV override,
+and can optionally enable D-Pad Up/Down track selection while driving.
+Reload the content after changing `music.csv`.
+
+Additional custom music resources and ready-to-edit examples are
+maintained in
+[cannonball-libretro-resources](https://github.com/Zer0one/cannonball-libretro-resources).
+
 ## Building the Libretro core
 
 The Libretro build uses `Makefile` and `Makefile.common`.
@@ -61,11 +82,8 @@ Makefile.
 
 ## Dependencies
 
-The Libretro core includes the required Libretro common sources and
-pugixml in the repository.
-
-Configuration and high-score XML handling use pugixml. The previous
-vendored Boost dependency is no longer required.
+The Libretro core includes the required Libretro common sources in the
+repository. It does not require Boost or an XML library.
 
 The Libretro build does not require SDL2. SDL2 and CMake are used by the
 standalone CannonBall application instead.

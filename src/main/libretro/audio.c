@@ -26,7 +26,9 @@ extern retro_audio_sample_batch_t  audio_batch_cb;
 
 void Audio_ctor(Audio* self)
 {
-    self->custom_wav_volume = 200;
+    self->custom_wav_volume                = 100;
+    self->custom_wav_track_volume          = 100;
+    self->custom_wav_volume_from_music_csv = true;
 }
 
 
@@ -97,13 +99,18 @@ void Audio_tick(Audio* self)
     const int samples_written =
         osoundint.pcm->sc.buffer_size;
 
+    { const uint16_t wav_volume =
+        self->custom_wav_volume_from_music_csv
+            ? self->custom_wav_track_volume
+            : self->custom_wav_volume;
+
     { int i; for (i = 0; i < samples_written; i++)
     {
         /* Scale by volume with round-to-nearest (symmetric about zero)
            rather than truncation, to avoid a per-sample quantisation bias. */
         const int64_t wav_scaled =
             (int64_t)wav_buffer[self->wavfile.pos] *
-            (int64_t)self->custom_wav_volume;
+            (int64_t)wav_volume;
         const int32_t wav_sample =
             (int32_t)((wav_scaled >= 0 ? wav_scaled + 50 : wav_scaled - 50) / 100);
 
@@ -132,7 +139,7 @@ void Audio_tick(Audio* self)
     audio_batch_cb(
         (const int16_t*)self->mix_buffer,
         samples_written / CHANNELS);
-    } }
+    } } }
 
 /* Empty Wav Buffer */
 static int16_t EMPTY_BUFFER[] = {0, 0, 0, 0};

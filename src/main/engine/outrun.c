@@ -129,6 +129,9 @@ void Outrun_tick(Outrun* self, bool tick_frame)
 
                 ORoad_set_view_mode(&oroad, mode, false);
             }
+
+            if (self->game_state == GS_INGAME)
+                OMusic_tick_ingame(&omusic);
         }
     }
 

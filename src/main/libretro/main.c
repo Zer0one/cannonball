@@ -100,6 +100,7 @@ static void config_init(void)
     config.sound.advertise   = 1;
     config.sound.preview     = 1;
     config.sound.fix_samples = 1;
+    config.sound.ingame_music_controls = 0;
     config.sound.music_timer = MUSIC_TIMER;
 
 
@@ -252,6 +253,8 @@ static bool update_option_visibility(void)
       option_display.key = "cannonball_sound_fix_samples";
       environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
       option_display.key = "cannonball_sound_custom_wav_volume";
+      environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
+      option_display.key = "cannonball_sound_ingame_music_controls";
       environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
 
       sound_enable_prev = sound_enable;
@@ -454,15 +457,37 @@ static void update_variables(bool startup)
            &var) &&
        var.value)
    {
-       int volume = atoi(var.value);
+       if (strcmp(var.value, "music_csv") == 0)
+          cannonball_audio.custom_wav_volume_from_music_csv = true;
+       else
+       {
+          char* volume_end;
+          long volume = strtol(var.value, &volume_end, 10);
 
-       if (volume < 0)
-           volume = 0;
-       else if (volume > 200)
-           volume = 200;
+          if (*volume_end)
+             cannonball_audio.custom_wav_volume_from_music_csv = true;
+          else
+          {
+             if (volume < 0)
+                 volume = 0;
+             else if (volume > 300)
+                 volume = 300;
 
-       cannonball_audio.custom_wav_volume =
-           (uint16_t)volume;
+             cannonball_audio.custom_wav_volume =
+                 (uint16_t)volume;
+
+             cannonball_audio.custom_wav_volume_from_music_csv = false;
+          }
+       }
+   }
+
+   var.key = "cannonball_sound_ingame_music_controls";
+   var.value = NULL;
+
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      config.sound.ingame_music_controls =
+         strcmp(var.value, "ON") == 0;
    }
 
    var.key = "cannonball_gear";
@@ -978,8 +1003,8 @@ bool retro_load_game(const struct retro_game_info *info)
 
    struct retro_input_descriptor desc[] = {
       {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT,  "Left"},
-      {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP,    "Up"},
-      {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN,  "Down"},
+      {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP,    "Up / Next Music Track"},
+      {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN,  "Down / Previous Music Track"},
       {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "Right"},
       {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X,     "Gear (Low, 2 Buttons Mode)"},
       {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B,     "Accelerate"},
@@ -1043,6 +1068,16 @@ bool retro_load_game(const struct retro_game_info *info)
 
    config_init();
    snprintf(config.data.res_path, sizeof(config.data.res_path), "%sres/", rom_path);
+
+   {
+      char music_csv_path[600];
+      snprintf(
+          music_csv_path,
+          sizeof(music_csv_path),
+          "%smusic.csv",
+          config.data.res_path);
+      Config_load_custom_music(&config, music_csv_path);
+   }
 
    update_variables(true);
 
