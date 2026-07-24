@@ -27,6 +27,7 @@ public:
     void check_start();
     void play_music(int index = -1);
     void cycle_music();
+    void tick_ingame();
 
 private:
     // Modified Widescreen version of the Music Select Tilemap
@@ -52,6 +53,9 @@ private:
     int16_t last_music_selected;
     int8_t preview_counter;
 
+    // Used to display the selected track briefly in-game
+    int16_t track_title_counter;
+
     const static short HAND_LEFT = 0, HAND_CENTRE = 1, HAND_RIGHT = 2;
     
 	void setup_sprite1();
@@ -59,6 +63,9 @@ private:
 	void setup_sprite3();
 	void setup_sprite4();
 	void setup_sprite5();
+    void change_music(int);
+    void clear_track_title();
+    void draw_track_title();
     void tick_original(oentry*, oentry*, oentry*);
     void tick_enhanced(oentry*, oentry*, oentry*);
     void set_hand(short, oentry*, oentry*, oentry*);
@@ -66,4 +73,3 @@ private:
 };
 
 extern OMusic omusic;
-

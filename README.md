@@ -52,3 +52,30 @@ Build
 * Edit config.xml to reflect the paths of your roms and res directories. By default, they should be in the working directory.
 * Copy the OutRun revision B romset to the roms subdirectory. 
 * You can then compile, debug and run from Visual Studio as expected.
+
+Custom Music (libretro)
+-----------------------
+
+Custom music tracks are defined in `res/music.xml`, relative to the CannonBall content directory. The legacy `res/config.xml` format remains supported as a fallback when `music.xml` is missing or cannot be read.
+
+Each enabled track requires a title and filename:
+
+```xml
+<sound>
+  <custom_music>
+    <track1 enabled="1" volume="80">
+      <title>MAGICAL SOUND SHOWER</title>
+      <filename>magical.wav</filename>
+    </track1>
+  </custom_music>
+</sound>
+```
+
+Track files are loaded from the same `res` directory. WAV and BIN tracks are supported. The optional WAV `volume` attribute is a percentage from `0` to `300`; it defaults to `100` and does not affect BIN tracks or original arcade music.
+
+The main related RetroArch core options are:
+
+* **Audio > Custom WAV Volume**: use each track's XML volume (the default), or select one percentage to override all custom WAV tracks.
+* **Audio > In-Game Music Selection**: optionally use D-Pad Up/Down to select the next or previous track while driving and briefly display its title. This is disabled by default.
+
+Reload the content after editing `music.xml`.

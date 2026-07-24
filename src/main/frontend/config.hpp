@@ -29,6 +29,7 @@ struct music_t
 
     int type;
     int cmd;
+    uint16_t volume;
     std::string title;
     std::string filename;
 };
@@ -77,6 +78,7 @@ struct sound_settings_t
     int advertise;
     int preview;
     int fix_samples;
+    int ingame_music_controls;
     int music_timer;
     std::vector<music_t> music;
     custom_music_t custom_music[4];
@@ -162,7 +164,9 @@ public:
     ~Config(void);
 
     void init();
-    void load_custom_music(const std::string& filename);
+    bool load_custom_music(
+        const std::string& filename,
+        bool silent_if_missing = false);
     void load_scores(const std::string &filename);
     void save_scores(const std::string &filename);
     void load_tiletrial_scores();

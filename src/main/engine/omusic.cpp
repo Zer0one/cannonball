@@ -21,8 +21,9 @@ OMusic omusic;
 
 OMusic::OMusic(void)
 {
-    tilemap    = NULL;
-    tile_patch = NULL;
+    tilemap             = NULL;
+    tile_patch          = NULL;
+    track_title_counter = 0;
 }
 
 
@@ -103,6 +104,7 @@ void OMusic::enable()
     video.tile_layer->set_x_clamp(video.tile_layer->CENTRE);
     cursor_pos = 1;
     total_tracks = (int)config.sound.music.size();
+    track_title_counter = 0;
 }
 
 void OMusic::disable()
@@ -277,6 +279,8 @@ void OMusic::play_music(int index)
             break;
 
         case music_t::IS_WAV:
+            cannonball::audio.custom_wav_track_volume =
+                next_track->volume;
             cannonball::audio.load_wav((config.data.res_path + next_track->filename).c_str());
             break;
     }
@@ -289,6 +293,88 @@ void OMusic::cycle_music()
 {
     if (++music_selected > 2) music_selected = 0;
     play_music();
+}
+
+// Change music while driving and briefly display the selected track.
+void OMusic::tick_ingame()
+{
+    if (!config.sound.ingame_music_controls)
+    {
+        if (track_title_counter > 0)
+        {
+            track_title_counter = 0;
+            clear_track_title();
+        }
+
+        return;
+    }
+
+    if (input.has_pressed(Input::UP))
+        change_music(1);
+    else if (input.has_pressed(Input::DOWN))
+        change_music(-1);
+
+    if (track_title_counter > 0 && --track_title_counter == 0)
+        clear_track_title();
+}
+
+void OMusic::change_music(int direction)
+{
+    const int track_count = (int)config.sound.music.size();
+
+    if (track_count == 0)
+        return;
+
+    int index = last_music_selected;
+
+    if (index < 0 || index >= track_count)
+        index = music_selected;
+
+    index += direction;
+
+    if (index >= track_count)
+        index = 0;
+    else if (index < 0)
+        index = track_count - 1;
+
+    music_selected = (uint8_t)index;
+
+    // Stop any currently playing YM track before loading a WAV.
+    if (config.sound.music.at(index).type == music_t::IS_WAV)
+        osoundint.queue_sound(sound::FM_RESET);
+
+    play_music(index);
+    draw_track_title();
+}
+
+void OMusic::clear_track_title()
+{
+    const uint8_t title_y = 4;
+
+    for (uint8_t x = 0; x < 40; x++)
+        video.write_text16(ohud.translate(x, title_y), 0);
+}
+
+void OMusic::draw_track_title()
+{
+    const uint8_t title_y = 4;
+    const size_t max_length = 40;
+
+    std::string title =
+        config.sound.music.at(music_selected).title;
+
+    if (title.length() > max_length)
+        title = title.substr(0, max_length - 3) + "...";
+
+    clear_track_title();
+    ohud.blit_text_new(
+        (uint16_t)((max_length - title.length()) / 2),
+        title_y,
+        title.c_str(),
+        OHud::GREEN);
+
+    // Engine input ticks run at 30 Hz.
+    track_title_counter = 3 * 30;
 }
 
 // Original Version of Music Selection Screen With 3 Tracks. 

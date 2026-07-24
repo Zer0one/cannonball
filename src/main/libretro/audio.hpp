@@ -32,6 +32,8 @@ public:
 
     // Playback volume of custom WAV music, in percent.
     uint16_t custom_wav_volume;
+    uint16_t custom_wav_track_volume;
+    bool custom_wav_volume_from_music_xml;
 
     Audio();
     ~Audio();

@@ -52,16 +52,19 @@ Config::Config(void)
     music_t magical;
     magical.type  = music_t::IS_YM_INT;
     magical.cmd   = sound::MUSIC_MAGICAL;
+    magical.volume = 100;
     magical.title = "MAGICAL SOUND SHOWER";
 
     music_t breeze;
     breeze.type  = music_t::IS_YM_INT;
     breeze.cmd   = sound::MUSIC_BREEZE;
+    breeze.volume = 100;
     breeze.title = "PASSING BREEZE";
 
     music_t splash;
     splash.type  = music_t::IS_YM_INT;
     splash.cmd   = sound::MUSIC_SPLASH;
+    splash.volume = 100;
     splash.title = "SPLASH WAVE";
 
     sound.music.push_back(magical);
@@ -79,7 +82,9 @@ void Config::init()
 
 }
 
-void Config::load_custom_music(const std::string& filename)
+bool Config::load_custom_music(
+    const std::string& filename,
+    const bool silent_if_missing)
 {
     // Remove custom tracks added by any previous content load,
     // while retaining the three original arcade tracks.
@@ -98,15 +103,21 @@ void Config::load_custom_music(const std::string& filename)
 
     if (!result)
     {
-        if (log_cb)
+        const bool file_not_found =
+            result.status == pugi::status_file_not_found;
+
+        if (log_cb &&
+            !(silent_if_missing && file_not_found))
             log_cb(
-                RETRO_LOG_WARN,
+                file_not_found
+                    ? RETRO_LOG_WARN
+                    : RETRO_LOG_ERROR,
                 "[Cannonball]: Could not read custom music configuration "
                 "%s: %s\n",
                 filename.c_str(),
                 result.description());
 
-        return;
+        return false;
     }
 
     const pugi::xml_node custom_music =
@@ -139,6 +150,19 @@ void Config::load_custom_music(const std::string& filename)
             continue;
 
         music_t music;
+
+        long long volume =
+            track
+                .attribute("volume")
+                .as_llong(100);
+
+        if (volume < 0)
+            volume = 0;
+        else if (volume > 300)
+            volume = 300;
+
+        music.volume =
+            (uint16_t)volume;
 
         const std::string default_title =
             "TRACK " + track_number;
@@ -191,6 +215,8 @@ void Config::load_custom_music(const std::string& filename)
             "from %s\n",
             loaded_tracks,
             filename.c_str());
+
+    return true;
 }
 
 static std::string get_xml_filename(

@@ -42,7 +42,9 @@ static int bytes_per_sample; // Number of bytes per sample entry (usually 4 byte
 
 Audio::Audio()
 {
-    custom_wav_volume = 200;
+    custom_wav_volume                = 100;
+    custom_wav_track_volume          = 100;
+    custom_wav_volume_from_music_xml = true;
 }
 
 Audio::~Audio()
@@ -137,12 +139,17 @@ void Audio::tick()
     const int samples_written =
         osoundint.pcm->buffer_size;
 
+    const uint16_t wav_volume =
+        custom_wav_volume_from_music_xml
+            ? custom_wav_track_volume
+            : custom_wav_volume;
+
     for (int i = 0; i < samples_written; i++)
     {
         const int32_t wav_sample =
             (int32_t)(
                 ((int64_t)wav_buffer[wavfile.pos] *
-                 (int64_t)custom_wav_volume) /
+                 (int64_t)wav_volume) /
                 100);
 
         int32_t mix_data =

@@ -121,6 +121,9 @@ void Outrun::tick(bool tick_frame)
 
                 oroad.set_view_mode(mode);
             }
+
+            if (game_state == GS_INGAME)
+                omusic.tick_ingame();
         }
     }
 
