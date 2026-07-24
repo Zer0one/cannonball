@@ -1,0 +1,214 @@
+name: Libretro CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: libretro-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-unix:
+    name: ${{ matrix.name }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86_64
+            runner: ubuntu-24.04
+            make_args: platform=unix
+            output: cannonball_libretro.so
+            asset: cannonball_libretro-linux-x86_64.so
+            file_regex: 'ELF 64-bit LSB shared object.*x86-64'
+
+          - name: Linux aarch64
+            runner: ubuntu-24.04-arm
+            make_args: platform=unix
+            output: cannonball_libretro.so
+            asset: cannonball_libretro-linux-aarch64.so
+            file_regex: 'ELF 64-bit LSB shared object.*(ARM aarch64|ARM64)'
+
+          - name: macOS arm64
+            runner: macos-15
+            make_args: platform=osx arch=arm
+            output: cannonball_libretro.dylib
+            asset: cannonball_libretro-macos-arm64.dylib
+            file_regex: 'Mach-O 64-bit dynamically linked shared library arm64'
+
+          - name: macOS x86_64
+            runner: macos-15-intel
+            make_args: platform=osx arch=intel
+            output: cannonball_libretro.dylib
+            asset: cannonball_libretro-macos-x86_64.dylib
+            file_regex: 'Mach-O 64-bit dynamically linked shared library x86_64'
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Build core
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          LOG="build-${{ matrix.asset }}.log"
+
+          find src deps -type f -name '*.o' -delete
+          rm -f "${{ matrix.output }}"
+          rm -rf dist
+          mkdir -p dist
+
+          make ${{ matrix.make_args }} -j2 2>&1 | tee "$LOG"
+
+          test -s "${{ matrix.output }}"
+
+          if grep -qiE \
+            'boost/|boost::|BOOST_|boost_dir|boost_1_|find_package\(Boost' \
+            "$LOG"
+          then
+              echo "La build contiene riferimenti a Boost."
+              exit 1
+          fi
+
+          cp "${{ matrix.output }}" \
+             "dist/${{ matrix.asset }}"
+
+          file "dist/${{ matrix.asset }}" |
+              tee "dist/${{ matrix.asset }}.file.txt"
+
+          file "dist/${{ matrix.asset }}" |
+              grep -Eq '${{ matrix.file_regex }}'
+
+          if command -v shasum >/dev/null 2>&1; then
+              (
+                  cd dist
+                  shasum -a 256 "${{ matrix.asset }}" \
+                      > "${{ matrix.asset }}.sha256"
+              )
+          else
+              (
+                  cd dist
+                  sha256sum "${{ matrix.asset }}" \
+                      > "${{ matrix.asset }}.sha256"
+              )
+          fi
+
+          cp "$LOG" dist/
+
+          WARNING_COUNT="$(
+              grep -c 'warning:' "$LOG" || true
+          )"
+
+          {
+              echo "### ${{ matrix.name }}"
+              echo
+              echo "- Artifact: \`${{ matrix.asset }}\`"
+              echo "- Compiler warnings: \`$WARNING_COUNT\`"
+              echo "- Commit: \`${GITHUB_SHA}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6
+
+  build-windows:
+    name: Windows x86_64
+
+    runs-on: windows-2025
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Configure MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            make
+            file
+            mingw-w64-ucrt-x86_64-gcc
+
+      - name: Build core
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+
+          OUTPUT="cannonball_libretro.dll"
+          ASSET="cannonball_libretro-windows-x86_64.dll"
+          LOG="build-$ASSET.log"
+
+          find src deps -type f -name '*.o' -delete
+          rm -f "$OUTPUT"
+          rm -rf dist
+          mkdir -p dist
+
+          make platform=win -j2 2>&1 | tee "$LOG"
+
+          test -s "$OUTPUT"
+
+          if grep -qiE \
+            'boost/|boost::|BOOST_|boost_dir|boost_1_|find_package\(Boost' \
+            "$LOG"
+          then
+              echo "La build contiene riferimenti a Boost."
+              exit 1
+          fi
+
+          cp "$OUTPUT" "dist/$ASSET"
+
+          file "dist/$ASSET" |
+              tee "dist/$ASSET.file.txt"
+
+          file "dist/$ASSET" |
+              grep -Fq 'PE32+'
+
+          file "dist/$ASSET" |
+              grep -Fq 'x86-64'
+
+          (
+              cd dist
+              sha256sum "$ASSET" > "$ASSET.sha256"
+          )
+
+          cp "$LOG" dist/
+
+          WARNING_COUNT="$(
+              grep -c 'warning:' "$LOG" || true
+          )"
+
+          {
+              echo "### Windows x86_64"
+              echo
+              echo "- Artifact: \`$ASSET\`"
+              echo "- Compiler warnings: \`$WARNING_COUNT\`"
+              echo "- Commit: \`${GITHUB_SHA}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: cannonball_libretro-windows-x86_64.dll
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6
