@@ -1,7 +1,5 @@
 /***************************************************************************
-    XML Configuration File Handling.
-
-    Load & Save Hi-Scores.
+    Configuration and Hi-Score Handling.
 
     Copyright Chris White.
     See license.txt for more details.
@@ -9,6 +7,7 @@
 
 #include <stdio.h>
 #include <compat/msvc.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h> /* remove() */
 
@@ -31,9 +30,29 @@ extern retro_log_printf_t                 log_cb;
 
 Config config;
 
-#define MUSIC_CSV_FIELD_COUNT 4
-#define MUSIC_CSV_FIELD_MAX 256
-#define MUSIC_CSV_FILE_MAX (1024 * 1024)
+#define MUSIC_LIST_VALUE_MAX 256
+#define MUSIC_LIST_FILE_MAX (1024 * 1024)
+
+enum config_music_section
+{
+    CONFIG_MUSIC_SECTION_NONE,
+    CONFIG_MUSIC_SECTION_MUSIC,
+    CONFIG_MUSIC_SECTION_TRACK
+};
+
+typedef struct
+{
+    unsigned number;
+    unsigned line;
+    bool enabled;
+    bool enabled_set;
+    bool volume_set;
+    bool title_set;
+    bool filename_set;
+    long volume;
+    char title[MUSIC_LIST_VALUE_MAX];
+    char filename[MUSIC_LIST_VALUE_MAX];
+} config_music_track;
 
 void Config_ctor(Config* self)
 {
@@ -70,7 +89,7 @@ void Config_ctor(Config* self)
     self->sound.music_num = 3;
 }
 
-static void config_csv_trim(char* value)
+static char* config_list_trim(char* value)
 {
     char* start = value;
     size_t length;
@@ -78,166 +97,16 @@ static void config_csv_trim(char* value)
     while (*start == ' ' || *start == '\t')
         start++;
 
-    if (start != value)
-        memmove(value, start, strlen(start) + 1);
-
-    length = strlen(value);
+    length = strlen(start);
     while (length > 0 &&
-           (value[length - 1] == ' ' ||
-            value[length - 1] == '\t'))
-        value[--length] = '\0';
+           (start[length - 1] == ' ' ||
+            start[length - 1] == '\t'))
+        start[--length] = '\0';
+
+    return start;
 }
 
-/* Read one RFC 4180-style record. Quoted fields may contain commas,
- * doubled quotes and line breaks. Blank lines are ignored. */
-static int config_csv_next_record(
-    const char** cursor,
-    char fields[MUSIC_CSV_FIELD_COUNT][MUSIC_CSV_FIELD_MAX],
-    unsigned* line,
-    unsigned* record_line)
-{
-    const char* p = *cursor;
-    int field;
-
-    for (;;)
-    {
-        const char* blank = p;
-
-        while (*blank == ' ' || *blank == '\t')
-            blank++;
-
-        if (!*blank)
-        {
-            *cursor = blank;
-            return 0;
-        }
-
-        if (*blank != '\r' && *blank != '\n')
-            break;
-
-        p = blank;
-        if (*p == '\r')
-            p++;
-        if (*p == '\n')
-            p++;
-        (*line)++;
-    }
-
-    if (!*p)
-    {
-        *cursor = p;
-        return 0;
-    }
-
-    *record_line = *line;
-
-    for (field = 0; field < MUSIC_CSV_FIELD_COUNT; field++)
-    {
-        size_t length = 0;
-
-        fields[field][0] = '\0';
-
-        if (*p == '"')
-        {
-            p++;
-
-            for (;;)
-            {
-                char value;
-
-                if (!*p)
-                    return -1;
-
-                if (*p == '"')
-                {
-                    if (p[1] == '"')
-                    {
-                        value = '"';
-                        p += 2;
-                    }
-                    else
-                    {
-                        p++;
-                        break;
-                    }
-                }
-                else if (*p == '\r' || *p == '\n')
-                {
-                    value = '\n';
-                    if (*p == '\r')
-                        p++;
-                    if (*p == '\n')
-                        p++;
-                    (*line)++;
-                }
-                else
-                    value = *p++;
-
-                if (length + 1 >= MUSIC_CSV_FIELD_MAX)
-                    return -1;
-
-                fields[field][length++] = value;
-            }
-
-            fields[field][length] = '\0';
-
-            while (*p == ' ' || *p == '\t')
-                p++;
-        }
-        else
-        {
-            while (*p && *p != ',' &&
-                   *p != '\r' && *p != '\n')
-            {
-                if (*p == '"' ||
-                    length + 1 >= MUSIC_CSV_FIELD_MAX)
-                    return -1;
-
-                fields[field][length++] = *p++;
-            }
-
-            fields[field][length] = '\0';
-            config_csv_trim(fields[field]);
-        }
-
-        if (field + 1 < MUSIC_CSV_FIELD_COUNT)
-        {
-            if (*p != ',')
-                return -1;
-            p++;
-        }
-        else
-        {
-            bool has_line_ending = false;
-
-            if (*p == ',')
-                return -1;
-
-            if (*p == '\r')
-            {
-                p++;
-                if (*p == '\n')
-                    p++;
-                has_line_ending = true;
-            }
-            else if (*p == '\n')
-            {
-                p++;
-                has_line_ending = true;
-            }
-            else if (*p)
-                return -1;
-
-            if (has_line_ending)
-                (*line)++;
-        }
-    }
-
-    *cursor = p;
-    return 1;
-}
-
-static bool config_csv_parse_long(const char* value, long* result)
+static bool config_list_parse_long(const char* value, long* result)
 {
     char* end;
     long parsed;
@@ -251,6 +120,115 @@ static bool config_csv_parse_long(const char* value, long* result)
 
     *result = parsed;
     return true;
+}
+
+static bool config_list_parse_bool(const char* value, bool* result)
+{
+    if (strcmp(value, "true") == 0 || strcmp(value, "1") == 0)
+        *result = true;
+    else if (strcmp(value, "false") == 0 || strcmp(value, "0") == 0)
+        *result = false;
+    else
+        return false;
+
+    return true;
+}
+
+/* Values follow the RetroArch-style key = value convention. Unquoted
+ * values end at '#'. Quoted values support escaped quotes and backslashes. */
+static bool config_list_parse_value(char* text, char** value)
+{
+    char* input = config_list_trim(text);
+
+    if (*input == '"')
+    {
+        char* output = input;
+
+        input++;
+        while (*input && *input != '"')
+        {
+            if (*input == '\\')
+            {
+                input++;
+                if (*input != '\\' && *input != '"')
+                    return false;
+            }
+            *output++ = *input++;
+        }
+
+        if (*input != '"')
+            return false;
+
+        input++;
+        *output = '\0';
+        input = config_list_trim(input);
+
+        if (*input && *input != '#')
+            return false;
+
+        *value = config_list_trim(text);
+        return true;
+    }
+    else
+    {
+        char* comment = strchr(input, '#');
+
+        if (comment)
+            *comment = '\0';
+
+        if (strchr(input, '"'))
+            return false;
+
+        *value = config_list_trim(input);
+        return true;
+    }
+}
+
+static bool config_list_parse_track_section(
+    const char* section,
+    unsigned* number)
+{
+    const char* digit;
+    unsigned parsed = 0;
+
+    if (strncmp(section, "track", 5) != 0)
+        return false;
+
+    digit = section + 5;
+    if (!*digit)
+        return false;
+
+    while (*digit)
+    {
+        unsigned value;
+
+        if (*digit < '0' || *digit > '9')
+            return false;
+
+        value = (unsigned)(*digit - '0');
+        if (parsed > (UINT_MAX - value) / 10)
+            return false;
+
+        parsed = parsed * 10 + value;
+        digit++;
+    }
+
+    if (!parsed)
+        return false;
+
+    *number = parsed;
+    return true;
+}
+
+static void config_music_track_init(
+    config_music_track* track,
+    unsigned number,
+    unsigned line)
+{
+    memset(track, 0, sizeof(*track));
+    track->number = number;
+    track->line = line;
+    track->volume = 100;
 }
 
 static bool config_music_is_wav(const char* filename)
@@ -269,18 +247,84 @@ static bool config_music_is_wav(const char* filename)
         (extension[3] == 'v' || extension[3] == 'V');
 }
 
+static bool config_music_add_track(
+    Config* self,
+    const config_music_track* track,
+    const char* filename,
+    unsigned* loaded_tracks)
+{
+    music_t* music;
+
+    if (!track->enabled_set)
+        return false;
+
+    if (!track->enabled)
+        return true;
+
+    if (self->sound.music_num >= MUSIC_TRACK_MAX)
+    {
+        if (log_cb)
+            log_cb(
+                RETRO_LOG_WARN,
+                "[Cannonball]: Custom music track limit reached; "
+                "ignoring [track%u] in %s\n",
+                track->number,
+                filename);
+        return true;
+    }
+
+    music = &self->sound.music[self->sound.music_num];
+    music->cmd = SOUND_MUSIC_CUSTOM;
+
+    if (track->title[0])
+        snprintf(music->title, sizeof(music->title), "%s", track->title);
+    else
+        snprintf(
+            music->title,
+            sizeof(music->title),
+            "TRACK %u",
+            track->number);
+
+    if (track->filename[0])
+        snprintf(
+            music->filename,
+            sizeof(music->filename),
+            "%s",
+            track->filename);
+    else
+        snprintf(
+            music->filename,
+            sizeof(music->filename),
+            "track%u.wav",
+            track->number);
+
+    music->type = config_music_is_wav(music->filename)
+        ? IS_WAV
+        : IS_YM_EXT;
+
+    music->volume = music->type == IS_WAV
+        ? (uint16_t)track->volume
+        : 100;
+
+    self->sound.music_num++;
+    (*loaded_tracks)++;
+    return true;
+}
+
 bool Config_load_custom_music(Config* self, const char* filename)
 {
     RFILE* file;
     int64_t file_length;
     char* file_data;
-    const char* cursor;
-    char fields[MUSIC_CSV_FIELD_COUNT][MUSIC_CSV_FIELD_MAX];
+    char* cursor;
+    enum config_music_section current_section = CONFIG_MUSIC_SECTION_NONE;
+    config_music_track track;
     unsigned line = 1;
-    unsigned record_line = 1;
-    unsigned row = 0;
+    unsigned error_line = 1;
+    unsigned last_track = 0;
     unsigned loaded_tracks = 0;
-    int result;
+    bool music_section_set = false;
+    bool version_set = false;
 
     /* Retain the three original arcade tracks across content reloads. */
     self->sound.music_num = 3;
@@ -290,17 +334,17 @@ bool Config_load_custom_music(Config* self, const char* filename)
         RETRO_VFS_FILE_ACCESS_READ,
         RETRO_VFS_FILE_ACCESS_HINT_NONE);
 
-    /* A missing music.csv is valid and means arcade music only. */
+    /* A missing music.list is valid and means arcade music only. */
     if (!file)
         return false;
 
     file_length = filestream_get_size(file);
-    if (file_length < 0 || file_length > MUSIC_CSV_FILE_MAX)
+    if (file_length < 0 || file_length > MUSIC_LIST_FILE_MAX)
     {
         if (log_cb)
             log_cb(
                 RETRO_LOG_ERROR,
-                "[Cannonball]: Invalid custom music CSV size: %s\n",
+                "[Cannonball]: Invalid custom music list size: %s\n",
                 filename);
         filestream_close(file);
         return false;
@@ -312,7 +356,7 @@ bool Config_load_custom_music(Config* self, const char* filename)
         if (log_cb)
             log_cb(
                 RETRO_LOG_ERROR,
-                "[Cannonball]: Not enough memory to read custom music CSV: %s\n",
+                "[Cannonball]: Not enough memory to read custom music list: %s\n",
                 filename);
         filestream_close(file);
         return false;
@@ -323,7 +367,7 @@ bool Config_load_custom_music(Config* self, const char* filename)
         if (log_cb)
             log_cb(
                 RETRO_LOG_ERROR,
-                "[Cannonball]: Could not read custom music CSV: %s\n",
+                "[Cannonball]: Could not read custom music list: %s\n",
                 filename);
         filestream_close(file);
         free(file_data);
@@ -334,7 +378,7 @@ bool Config_load_custom_music(Config* self, const char* filename)
     file_data[file_length] = '\0';
 
     if (memchr(file_data, '\0', (size_t)file_length))
-        goto invalid_csv;
+        goto invalid_list;
 
     cursor = file_data;
 
@@ -344,96 +388,195 @@ bool Config_load_custom_music(Config* self, const char* filename)
         (unsigned char)cursor[2] == 0xbf)
         cursor += 3;
 
-    result = config_csv_next_record(
-        &cursor, fields, &line, &record_line);
-
-    if (result != 1 ||
-        strcmp(fields[0], "enabled") != 0 ||
-        strcmp(fields[1], "volume") != 0 ||
-        strcmp(fields[2], "title") != 0 ||
-        strcmp(fields[3], "filename") != 0)
-        goto invalid_csv;
-
-    while ((result = config_csv_next_record(
-                &cursor, fields, &line, &record_line)) == 1)
+    while (*cursor)
     {
-        long enabled;
-        long volume = 100;
-        music_t* music;
+        char* text = cursor;
+        char* end = cursor;
 
-        row++;
+        while (*end && *end != '\r' && *end != '\n')
+            end++;
 
-        if (!config_csv_parse_long(fields[0], &enabled) ||
-            (enabled != 0 && enabled != 1))
-            goto invalid_csv;
-
-        if (fields[1][0] &&
-            !config_csv_parse_long(fields[1], &volume))
-            goto invalid_csv;
-
-        if (volume < 0)
-            volume = 0;
-        else if (volume > 300)
-            volume = 300;
-
-        if (!enabled)
-            continue;
-
-        if (self->sound.music_num >= MUSIC_TRACK_MAX)
+        if (*end)
         {
-            if (log_cb)
-                log_cb(
-                    RETRO_LOG_WARN,
-                    "[Cannonball]: Custom music track limit reached; "
-                    "ignoring row %u in %s\n",
-                    row,
-                    filename);
-            continue;
+            char ending = *end;
+
+            *end++ = '\0';
+            if (ending == '\r' && *end == '\n')
+                end++;
         }
 
-        music = &self->sound.music[self->sound.music_num];
-        music->cmd = SOUND_MUSIC_CUSTOM;
+        cursor = end;
+        text = config_list_trim(text);
+        error_line = line;
 
-        if (fields[2][0])
-            snprintf(
-                music->title,
-                sizeof(music->title),
-                "%s",
-                fields[2]);
-        else
-            snprintf(
-                music->title,
-                sizeof(music->title),
-                "TRACK %u",
-                row);
+        if (*text && *text != '#')
+        {
+            if (*text == '[')
+            {
+                char* close = strchr(text + 1, ']');
+                char* section;
+                char* trailing;
+                unsigned track_number;
 
-        if (fields[3][0])
-            snprintf(
-                music->filename,
-                sizeof(music->filename),
-                "%s",
-                fields[3]);
-        else
-            snprintf(
-                music->filename,
-                sizeof(music->filename),
-                "track%u.wav",
-                row);
+                if (!close)
+                    goto invalid_list;
 
-        music->type = config_music_is_wav(music->filename)
-            ? IS_WAV
-            : IS_YM_EXT;
+                *close = '\0';
+                section = config_list_trim(text + 1);
+                trailing = config_list_trim(close + 1);
 
-        music->volume = music->type == IS_WAV
-            ? (uint16_t)volume
-            : 100;
+                if (!*section || (*trailing && *trailing != '#'))
+                    goto invalid_list;
 
-        self->sound.music_num++;
-        loaded_tracks++;
+                if (current_section == CONFIG_MUSIC_SECTION_TRACK &&
+                    !config_music_add_track(
+                        self,
+                        &track,
+                        filename,
+                        &loaded_tracks))
+                {
+                    error_line = track.line;
+                    goto invalid_list;
+                }
+
+                if (strcmp(section, "music") == 0)
+                {
+                    if (music_section_set || last_track)
+                        goto invalid_list;
+
+                    music_section_set = true;
+                    current_section = CONFIG_MUSIC_SECTION_MUSIC;
+                }
+                else if (config_list_parse_track_section(
+                             section,
+                             &track_number))
+                {
+                    if (!music_section_set || !version_set ||
+                        track_number <= last_track)
+                        goto invalid_list;
+
+                    last_track = track_number;
+                    config_music_track_init(&track, track_number, line);
+                    current_section = CONFIG_MUSIC_SECTION_TRACK;
+                }
+                else
+                    goto invalid_list;
+            }
+            else
+            {
+                char* equals = strchr(text, '=');
+                char* key;
+                char* value;
+
+                if (!equals)
+                    goto invalid_list;
+
+                *equals = '\0';
+                key = config_list_trim(text);
+                if (!*key || !config_list_parse_value(equals + 1, &value))
+                    goto invalid_list;
+
+                if (current_section == CONFIG_MUSIC_SECTION_MUSIC)
+                {
+                    if (strcmp(key, "version") == 0)
+                    {
+                        long version;
+
+                        if (version_set ||
+                            !config_list_parse_long(value, &version) ||
+                            version != 1)
+                            goto invalid_list;
+
+                        version_set = true;
+                    }
+                    else if (log_cb)
+                        log_cb(
+                            RETRO_LOG_WARN,
+                            "[Cannonball]: Ignoring unknown key '%s' "
+                            "in [music] at line %u: %s\n",
+                            key,
+                            line,
+                            filename);
+                }
+                else if (current_section == CONFIG_MUSIC_SECTION_TRACK)
+                {
+                    if (strcmp(key, "enabled") == 0)
+                    {
+                        if (track.enabled_set ||
+                            !config_list_parse_bool(value, &track.enabled))
+                            goto invalid_list;
+                        track.enabled_set = true;
+                    }
+                    else if (strcmp(key, "volume") == 0)
+                    {
+                        long volume = 100;
+
+                        if (track.volume_set ||
+                            (*value &&
+                             !config_list_parse_long(value, &volume)))
+                            goto invalid_list;
+
+                        if (volume < 0)
+                            volume = 0;
+                        else if (volume > 300)
+                            volume = 300;
+
+                        track.volume = volume;
+                        track.volume_set = true;
+                    }
+                    else if (strcmp(key, "title") == 0)
+                    {
+                        if (track.title_set ||
+                            strlen(value) >= sizeof(track.title))
+                            goto invalid_list;
+
+                        snprintf(track.title, sizeof(track.title), "%s", value);
+                        track.title_set = true;
+                    }
+                    else if (strcmp(key, "filename") == 0)
+                    {
+                        if (track.filename_set ||
+                            strlen(value) >= sizeof(track.filename))
+                            goto invalid_list;
+
+                        snprintf(
+                            track.filename,
+                            sizeof(track.filename),
+                            "%s",
+                            value);
+                        track.filename_set = true;
+                    }
+                    else if (log_cb)
+                        log_cb(
+                            RETRO_LOG_WARN,
+                            "[Cannonball]: Ignoring unknown key '%s' "
+                            "in [track%u] at line %u: %s\n",
+                            key,
+                            track.number,
+                            line,
+                            filename);
+                }
+                else
+                    goto invalid_list;
+            }
+        }
+
+        line++;
     }
 
-    if (result < 0)
-        goto invalid_csv;
+    if (current_section == CONFIG_MUSIC_SECTION_TRACK &&
+        !config_music_add_track(
+            self,
+            &track,
+            filename,
+            &loaded_tracks))
+    {
+        error_line = track.line;
+        goto invalid_list;
+    }
+
+    if (!music_section_set || !version_set)
+        goto invalid_list;
 
     if (log_cb)
         log_cb(
@@ -445,14 +588,14 @@ bool Config_load_custom_music(Config* self, const char* filename)
     free(file_data);
     return true;
 
-invalid_csv:
+invalid_list:
     self->sound.music_num = 3;
 
     if (log_cb)
         log_cb(
             RETRO_LOG_ERROR,
-            "[Cannonball]: Invalid custom music CSV at line %u: %s\n",
-            record_line,
+            "[Cannonball]: Invalid custom music list at line %u: %s\n",
+            error_line,
             filename);
 
     free(file_data);

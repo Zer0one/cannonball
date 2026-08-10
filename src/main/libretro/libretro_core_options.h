@@ -195,14 +195,14 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "Custom WAV Volume",
       "Set playback volume of custom WAV music tracks. "
       "Does not affect original arcade music or external BIN music. "
-      "'From Music CSV' uses each track's volume field, or 100% "
+      "'From Music List' uses each track's volume field, or 100% "
       "when the field is empty. "
       "50% matches the historical SDL attenuation; "
       "values above 100% may clip when mixed with sound effects.",
       NULL,
       "audio",
       {
-         { "music_csv", "From Music CSV" },
+         { "music_list", "From Music List" },
          { "0", "0%" },
          { "10", "10%" },
          { "20", "20%" },
@@ -236,7 +236,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
          { "300", "300%" },
          { NULL, NULL },
       },
-      "music_csv"
+      "music_list"
    },
    {
       "cannonball_sound_ingame_music_controls",

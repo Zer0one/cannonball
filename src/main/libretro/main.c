@@ -457,15 +457,15 @@ static void update_variables(bool startup)
            &var) &&
        var.value)
    {
-       if (strcmp(var.value, "music_csv") == 0)
-          cannonball_audio.custom_wav_volume_from_music_csv = true;
+       if (strcmp(var.value, "music_list") == 0)
+          cannonball_audio.custom_wav_volume_from_music_list = true;
        else
        {
           char* volume_end;
           long volume = strtol(var.value, &volume_end, 10);
 
           if (*volume_end)
-             cannonball_audio.custom_wav_volume_from_music_csv = true;
+             cannonball_audio.custom_wav_volume_from_music_list = true;
           else
           {
              if (volume < 0)
@@ -476,7 +476,7 @@ static void update_variables(bool startup)
              cannonball_audio.custom_wav_volume =
                  (uint16_t)volume;
 
-             cannonball_audio.custom_wav_volume_from_music_csv = false;
+             cannonball_audio.custom_wav_volume_from_music_list = false;
           }
        }
    }
@@ -1070,13 +1070,13 @@ bool retro_load_game(const struct retro_game_info *info)
    snprintf(config.data.res_path, sizeof(config.data.res_path), "%sres/", rom_path);
 
    {
-      char music_csv_path[600];
+      char music_list_path[600];
       snprintf(
-          music_csv_path,
-          sizeof(music_csv_path),
-          "%smusic.csv",
+          music_list_path,
+          sizeof(music_list_path),
+          "%smusic.list",
           config.data.res_path);
-      Config_load_custom_music(&config, music_csv_path);
+      Config_load_custom_music(&config, music_list_path);
    }
 
    update_variables(true);

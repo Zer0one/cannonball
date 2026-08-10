@@ -26,9 +26,9 @@ extern retro_audio_sample_batch_t  audio_batch_cb;
 
 void Audio_ctor(Audio* self)
 {
-    self->custom_wav_volume                = 100;
-    self->custom_wav_track_volume          = 100;
-    self->custom_wav_volume_from_music_csv = true;
+    self->custom_wav_volume                 = 100;
+    self->custom_wav_track_volume           = 100;
+    self->custom_wav_volume_from_music_list = true;
 }
 
 
@@ -100,7 +100,7 @@ void Audio_tick(Audio* self)
         osoundint.pcm->sc.buffer_size;
 
     { const uint16_t wav_volume =
-        self->custom_wav_volume_from_music_csv
+        self->custom_wav_volume_from_music_list
             ? self->custom_wav_track_volume
             : self->custom_wav_volume;
 

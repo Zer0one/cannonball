@@ -37,7 +37,7 @@ typedef struct Audio
     bool sound_enabled;
     uint16_t custom_wav_volume;
     uint16_t custom_wav_track_volume;
-    bool custom_wav_volume_from_music_csv;
+    bool custom_wav_volume_from_music_list;
     uint16_t* mix_buffer;
     wav_t wavfile;
 } Audio;

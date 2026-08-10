@@ -1,0 +1,40 @@
+# CannonBall custom music list
+
+[music]
+version = 1
+
+[track1]
+enabled = false
+volume = 100
+title = "RADIATION"
+filename = "switch_radiation.bin"
+
+[track2]
+enabled = false
+volume = 100
+title = "CRUISING LINE"
+filename = "switch_cruisingline.bin"
+
+[track3]
+enabled = false
+volume = 100
+title = "CAMINO A MI AMOR"
+filename = "switch_camino.bin"
+
+[track4]
+enabled = false
+volume = 100
+title = "STEP ON BEAT"
+filename = "switch_steponbeat.bin"
+
+[track5]
+enabled = false
+volume = 100
+title = "STEP ON BEAT MEGADRIVE"
+filename = "switch_steponbeat_md.bin"
+
+[track6]
+enabled = false
+volume = 100
+title = "MIDNIGHT HIGHWAY"
+filename = "switch_midnighthighway.wav"

@@ -39,20 +39,33 @@ system and selected input driver.
 
 ## Custom Music
 
-Custom WAV and BIN tracks are defined in `res/music.csv`, relative to
+Custom WAV and BIN tracks are defined in `res/music.list`, relative to
 the CannonBall content directory:
 
-```csv
-enabled,volume,title,filename
-1,80,MAGICAL SOUND SHOWER,magical.wav
-1,100,CRUISING LINE SWITCH,switch_cruisingline.bin
+```text
+[music]
+version = 1
+
+[track1]
+enabled = true
+volume = 80
+title = "MAGICAL SOUND SHOWER"
+filename = "magical.wav"
+
+[track2]
+enabled = true
+title = "CRUISING LINE SWITCH"
+filename = "switch_cruisingline.bin"
 ```
 
-Rows are played in file order. `volume` is a percentage from 0 to 300,
-defaults to 100 when empty and affects WAV tracks only. The corresponding
-RetroArch options select per-track CSV volume or a global WAV override,
-and can optionally enable D-Pad Up/Down track selection while driving.
-Reload the content after changing `music.csv`.
+Tracks are played by increasing section number. The format uses
+RetroArch-style `key = value` entries, `#` comments and optional quoted
+values; `enabled` accepts `true`/`false` or `1`/`0`. `volume` is a
+percentage from 0 to 300, defaults to 100 when omitted and affects WAV
+tracks only. The corresponding RetroArch options select per-track list
+volume or a global WAV override, and can optionally enable D-Pad Up/Down
+track selection while driving. Reload the content after changing
+`music.list`.
 
 Additional custom music resources and ready-to-edit examples are
 maintained in
