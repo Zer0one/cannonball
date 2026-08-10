@@ -111,3 +111,9 @@ repository license files for the complete terms.
 
 The original OutRun ROM files and other copyrighted game data are not
 included.
+
+## Development History
+
+A concise overview of the repository lineage, release milestones and
+maintenance workflow is available in
+[`docs/development-history.md`](docs/development-history.md).
